@@ -1,0 +1,5 @@
+{
+  "model": "deepseek-flash",
+  "system": "你是一个乐于助人的中文 AI 助手，回答尽量简洁。",
+  "timeout": 60
+}

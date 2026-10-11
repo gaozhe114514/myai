@@ -1,0 +1,18 @@
+# .gitignore —— 告诉 git："这些东西别跟踪"
+#
+# 规则写在下面，一行一个。带斜杠结尾（如 .venv/）表示只匹配目录。
+
+# 密钥：里面有 API key，绝对不能提交
+.env
+
+# Python 运行时的临时产物，每次都自动重新生成，没必要提交
+.venv/
+__pycache__/
+*.pyc
+
+# 我自己的对话记录（属于个人数据，不属于项目代码）
+sessions/
+
+# 向量库：由 `python ingest.py` 从 docs/ 自动生成
+# 属于"派生数据"—— 提交它没有意义，别人 clone 下来跑一次 ingest.py 就有了
+rag_index.json

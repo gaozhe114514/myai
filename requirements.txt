@@ -1,0 +1,13 @@
+﻿# 这个项目用到的第三方库，一条一行。
+# 装法：pip install -r requirements.txt
+
+# 用来发 HTTP 请求，跟模型服务"打电话"
+requests>=2.31
+
+# 用来读取 .env 文件里的配置，这样密钥就不用写死在代码里
+python-dotenv>=1.0
+
+# 第 6 步 RAG 用的：把文字变成向量做检索。
+# 注意它体积很大，会连带装上 torch（约 241MB）。
+# 国内安装建议加镜像：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+sentence-transformers>=5.0
