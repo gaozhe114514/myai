@@ -16,11 +16,11 @@ RAG 一共五步，本文件负责前四步：
 import json
 import os
 
-# 复用 chat.py 里已经写好的一堆东西，不重复造：
-#   read_document  读文件（带 GBK 兜底）
+# 复用已经写好的东西，不重复造：
 #   chat_ask       调模型（带流式输出，可静默）
+#   read_document  从 txt/md/pdf/docx 里抠出纯文本
 from chat import ask as chat_ask
-from chat import read_document
+from docreader import SUPPORTED_EXTENSIONS, read_document
 
 # ============================ 配置 ============================
 
@@ -59,23 +59,33 @@ REWRITE_PROMPT = """用户会用口语提问，但知识库里的文档用的是
 # ============================ 第 1 步：读文档 + 切块 ============================
 
 def read_docs(docs_dir=DOCS_DIR):
-    """把目录里所有 .txt / .md 读进来。
+    """把目录里所有支持的文档读进来。
 
-    返回 [(文件名, 正文), ...]，按文件名排序，保证每次建库顺序一样。
+    返回 (docs, skipped) 两个列表：
+        docs    —— [(文件名, 正文), ...]，按文件名排序，保证每次建库顺序一样
+        skipped —— [(文件名, 失败原因), ...]
+
+    为什么分成两个列表返回，而不是在里面直接 print？
+    因为调用方有两种：命令行要打在屏幕上，网页界面要显示在侧边栏里。
+    让它们自己决定怎么展示，比我们在这里写死要灵活。
     """
     if not os.path.isdir(docs_dir):
-        raise SystemExit(f"找不到文档目录：{docs_dir}\n先建一个，把 txt/md 放进去。")
+        raise SystemExit(f"找不到文档目录：{docs_dir}\n先建一个，把文档放进去。")
 
     docs = []
+    skipped = []
     for name in sorted(os.listdir(docs_dir)):
-        if not name.lower().endswith((".txt", ".md")):
+        # 支持哪些格式由 docreader 说了算 —— 这里不写死，加新格式时只改一处
+        if not name.lower().endswith(SUPPORTED_EXTENSIONS):
             continue
+
         filename, content = read_document(os.path.join(docs_dir, name))
         if filename is None:
-            print(f"  跳过 {name}：{content}")
+            skipped.append((name, content))
             continue
         docs.append((filename, content))
-    return docs
+
+    return docs, skipped
 
 
 def chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):

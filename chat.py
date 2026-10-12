@@ -25,6 +25,9 @@ from datetime import datetime    # 生成带时间戳的文件名
 
 import requests                  # 发 HTTP 请求
 
+# 本项目自己的模块：从 txt/md/pdf/docx 里把文字抠出来
+from docreader import read_document
+
 try:
     from dotenv import load_dotenv
 
@@ -40,9 +43,8 @@ except ImportError:
 CONFIG_FILE = "config.json"     # 默认值放这儿
 SESSIONS_DIR = "sessions"       # 对话存档放这儿
 
-# /file 只收这两种后缀。
-# 故意收窄的：免得你手一滑把 .env（里面有密钥）或者几百 MB 的日志塞进 prompt。
-ALLOWED_EXTENSIONS = (".txt", ".md")
+# 能读哪些格式，定义在 docreader.py 里（那里也负责把各种格式转成纯文本）。
+# 收窄在这里是有意的：免得你手一滑把 .env（里面有密钥）塞进 prompt。
 
 # 这些是"走到最后没人管"时用的兜底值。
 # 实际生效的顺序是：命令行参数 > config.json > 环境变量 > 这里的默认值
@@ -195,39 +197,8 @@ def list_sessions():
 
 
 # ============================ 本地文件（第 5 步） ============================
-
-def read_document(path):
-    """读一个本地文件，用来当参考资料。
-
-    成功 → (文件名, 正文)
-    失败 → (None, 一句错误说明)
-    """
-
-    # 只看后缀，不收别的格式
-    extension = os.path.splitext(path)[1].lower()
-    if extension not in ALLOWED_EXTENSIONS:
-        return None, f"只支持 .txt 和 .md（你给的是 {extension or '没有后缀名'}）"
-
-    if os.path.isdir(path):
-        return None, "这是个目录，不是文件"
-    if not os.path.exists(path):
-        return None, "找不到这个文件"
-
-    # 先按 UTF-8 读
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return os.path.basename(path), f.read()
-    except UnicodeDecodeError:
-        # 不是 UTF-8 —— 中文 Windows 上记事本存的老文件常是 GBK 编码，再试一次。
-        # 这就是 requirements.txt 那个坑的同一个根：文件编码和读取编码对不上。
-        try:
-            with open(path, "r", encoding="gbk") as f:
-                return os.path.basename(path), f.read()
-        except (OSError, UnicodeDecodeError) as error:
-            return None, f"读不了（{error}）"
-    except OSError as error:
-        return None, f"读不了（{error}）"
-
+# 注意：真正"把文件读成文字"的活儿在 docreader.py 里 ——
+# 它要处理 txt / md / pdf / docx 好几种格式，属于另一件事，所以单独放。
 
 def handle_file_command(session, user_input):
     """处理 /file 命令：加载文件，或者列出已经加载了哪些。"""
