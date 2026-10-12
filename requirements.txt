@@ -11,3 +11,10 @@ python-dotenv>=1.0
 # 注意它体积很大，会连带装上 torch（约 241MB）。
 # 国内安装建议加镜像：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 sentence-transformers>=5.0
+
+# 读取 PDF / Word 文档（docreader.py 用）
+pypdf>=4.0
+python-docx>=1.0
+
+# 网页界面（app.py 用）
+streamlit>=1.40

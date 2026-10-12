@@ -2,7 +2,7 @@
 
 一个从零手写的命令行 AI 助手。能多轮对话，能读你给它的文档，能在文档库里检索，还能自己调用工具干活。
 
-**没有使用任何 AI 框架** —— 请求怎么发、上下文怎么管、检索怎么做、工具怎么调，每一层都是自己实现的，一共 5 个模块约 1700 行 Python。
+**没有使用任何 AI 框架** —— 请求怎么发、上下文怎么管、检索怎么做、工具怎么调，每一层都是自己实现的，一共 7 个模块 2151 行 Python。
 
 ---
 
@@ -53,6 +53,23 @@ $ python agent.py "我们公司报销要在多少天内提交？"
 
 同一个入口，模型自己分派 —— 涉及公司制度的问题去查文档，闲聊的问题直接回答。
 
+### 4. 网页界面
+
+```cmd
+streamlit run app.py
+```
+
+浏览器会自动打开。左边是设置（模型、人设、知识库管理），右边是聊天窗口。
+
+界面上的东西：
+
+- **流式回答** —— 一个字一个字往外蹦，不是卡住然后整段出现
+- **标注来源** —— 每段回答下面可以展开看"依据了哪几段资料、相似度多少"
+- **一键重建知识库** —— 上传文档后点一下就行，不用敲命令
+- **可以关掉"查资料"** —— 同一个问题，开/关对比一下，就知道 RAG 到底有什么用
+
+支持上传 **txt / md / pdf / docx**。
+
 ---
 
 ## 快速开始
@@ -87,6 +104,8 @@ python chat.py "你好"                              ← 先试这一句
 python ingest.py                                   ← 建知识库（第一次会下模型，约 95MB）
 python ask.py "报销要在多少天内提交？"
 python agent.py "现在几点？"
+
+streamlit run app.py                               ← 网页界面
 ```
 
 ---
@@ -99,6 +118,8 @@ rag_common.py   RAG 的共用工具：切块、向量化、检索、查询改写
 ingest.py       建库：读 docs/ → 切块 → 算向量 → 存成 rag_index.json
 ask.py          知识库问答：检索 → 拼 prompt → 回答并标出处
 agent.py        工具调用：定义工具、执行工具、Agent 循环
+docreader.py    从 txt / md / pdf / docx 里把纯文本抠出来
+app.py          网页界面（Streamlit）
 config.json     默认配置（模型、人设、超时）
 docs/           你的文档放这里
 examples/       agent 演示用的测试文件
@@ -179,6 +200,8 @@ embedding 模型对"换个说法"很敏感。实测：问"我出差自己先垫�
 - **requests** — HTTP 请求
 - **python-dotenv** — 读取 `.env` 配置
 - **sentence-transformers** — 本地运行 embedding 模型（`BAAI/bge-small-zh-v1.5`）
+- **pypdf / python-docx** — 解析 PDF 和 Word
+- **Streamlit** — 网页界面
 - **模型** — DeepSeek `deepseek-flash`（OpenAI 兼容接口）
 
 ---

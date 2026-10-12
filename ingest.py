@@ -1,15 +1,17 @@
 """
-ingest.py —— 建知识库（RAG 的第 1~3 步：读文档 → 切块 → 向量化 → 存起来）。
+ingest.py —— 建知识库：把 docs/ 里的文档，变成可以按"意思"检索的向量库。
 
 用法：
-    python ingest.py                 读 docs/ 目录里的所有文档
-    python ingest.py 别的目录          换一个目录
-    python ingest.py 别的目录 600 100   顺便改块大小和重叠
+    python ingest.py                    读 docs/ 目录
+    python ingest.py 别的目录
+    python ingest.py 别的目录 600 100    顺便改块大小和重叠
 
-建完会生成 rag_index.json，那是你的"向量库"。
-文档改了、加新文档了，都要重新跑一次这个脚本。
+建完会生成 rag_index.json。文档改了、加新文档了，都要重新跑一次。
 
-注意：这个脚本**不调用聊天模型**，只调用 embedding 模型。
+支持 txt / md / pdf / docx（能读哪些格式由 docreader.py 说了算）。
+
+注意：这个脚本**不调用聊天模型**，只用 embedding 模型 ——
+而 embedding 模型是跑在你自己电脑上的，所以这一步不花 API 的钱。
 """
 
 import sys
@@ -17,62 +19,93 @@ import sys
 import rag_common
 
 
+def build_index(docs_dir=None, size=None, overlap=None, on_step=None):
+    """建库的完整流程：读文档 → 切块 → 向量化 → 存盘。
+
+    返回一个统计字典（读了几篇、切了几块、存到哪了）。
+
+    参数 on_step 是个回调函数：每进入一个阶段就调一次，传一句进度文字。
+    命令行用它打进度，网页界面用它更新进度条。
+    不传就什么都不显示 —— 这样网页那边不会往终端里刷一堆东西。
+
+    抽成函数而不是全写在 main() 里，就是为了让网页界面能直接调它 ——
+    否则同样的流程要写两遍，改一处漏一处。
+    """
+    def step(text):
+        if on_step:
+            on_step(text)
+
+    docs_dir = docs_dir or rag_common.DOCS_DIR
+    size = size or rag_common.CHUNK_SIZE
+    overlap = rag_common.CHUNK_OVERLAP if overlap is None else overlap
+
+    # ---- 第 1 步：读文档 ----
+    step(f"读取 {docs_dir}/ 目录……")
+    docs, skipped = rag_common.read_docs(docs_dir)
+    if not docs:
+        raise RuntimeError(f"{docs_dir} 里没有可读的文档（支持 {rag_common.SUPPORTED_EXTENSIONS}）")
+    step(f"读到 {len(docs)} 篇文档")
+
+    # ---- 第 2 步：切块 ----
+    step("切块……")
+    chunks = rag_common.build_chunks(docs, size, overlap)
+    step(f"切成 {len(chunks)} 块")
+
+    # ---- 第 3 步：向量化（最慢的一步）----
+    step("向量化（第一次运行要加载模型，会慢一点）……")
+    vectors = rag_common.embed([chunk["text"] for chunk in chunks])
+    step(f"算完 {len(vectors)} 个向量")
+
+    # ---- 第 4 步：存盘 ----
+    step("保存向量库……")
+    path = rag_common.save_index(chunks, vectors)
+
+    return {
+        "docs": len(docs),
+        "skipped": skipped,
+        "chunks": len(chunks),
+        "dim": len(vectors[0]) if vectors else 0,
+        "path": path,
+        "first_chunk": chunks[0] if chunks else None,
+        "first_vector": vectors[0][:8] if vectors else [],
+        "size": size,
+        "overlap": overlap,
+    }
+
+
 def main():
-    # 从命令行拿参数，没给就用默认值
     docs_dir = sys.argv[1] if len(sys.argv) > 1 else rag_common.DOCS_DIR
     size = int(sys.argv[2]) if len(sys.argv) > 2 else rag_common.CHUNK_SIZE
     overlap = int(sys.argv[3]) if len(sys.argv) > 3 else rag_common.CHUNK_OVERLAP
 
-    print("=" * 50)
-    print("第 1 步：读取文档")
-    print("=" * 50)
-
-    docs = rag_common.read_docs(docs_dir)
-    if not docs:
-        print(f"{docs_dir} 里没有 .txt 或 .md 文件。")
+    print("=" * 52)
+    try:
+        stats = build_index(docs_dir, size, overlap,
+                            on_step=lambda text: print(f"[{text}]"))
+    except RuntimeError as error:
+        print(error)
         return 1
-    for filename, content in docs:
-        print(f"  {filename}（{len(content)} 字）")
-    print(f"共 {len(docs)} 篇。")
+
+    # 命令行这边多讲一点 —— 网页界面不需要这些，所以放在 main() 里，不在 build_index 里
+    for name, reason in stats["skipped"]:
+        print(f"  跳过 {name}：{reason}")
 
     print()
-    print("=" * 50)
-    print("第 2 步：切块")
-    print("=" * 50)
+    print(f"每块约 {stats['size']} 字，相邻重叠 {stats['overlap']} 字")
+    print(f"共 {stats['docs']} 篇 → {stats['chunks']} 块 → 每块 {stats['dim']} 维向量")
 
-    chunks = rag_common.build_chunks(docs, size, overlap)
-    print(f"每块约 {size} 字，相邻重叠 {overlap} 字")
-    print(f"切出 {len(chunks)} 块。")
-
-    # 打印第一块的样子，让你直观看清"块"长什么样。
-    # 新手最容易卡在"块到底是什么"这个抽象概念上，看一眼就明白了。
     print()
     print("第一块长这样：")
-    print(f"  来自：{chunks[0]['source']}")
-    print(f"  内容：{chunks[0]['text'][:120]}...")
+    print(f"  来自：{stats['first_chunk']['source']}")
+    print(f"  内容：{stats['first_chunk']['text'][:100]}...")
 
-    print()
-    print("=" * 50)
-    print("第 3 步：向量化（最慢的一步）")
-    print("=" * 50)
-
-    vectors = rag_common.embed([c["text"] for c in chunks])
-    print(f"算完 {len(vectors)} 个向量，每个 {len(vectors[0])} 维。")
-
-    # 顺手展示一下"向量"到底是什么：就是一小串数字而已
     print()
     print("第一个向量长这样（只显示前 8 个数）：")
-    print(f"  {[round(v, 4) for v in vectors[0][:8]]}")
-    print("  512 个这样的数字，就代表了一段话的'意思'。")
+    print(f"  {[round(v, 4) for v in stats['first_vector']]}")
+    print(f"  {stats['dim']} 个这样的数字，就代表了一段话的'意思'。")
 
     print()
-    print("=" * 50)
-    print("存储")
-    print("=" * 50)
-
-    path = rag_common.save_index(chunks, vectors)
-    print(f"已写入 {path}")
-
+    print(f"已写入 {stats['path']}")
     return 0
 
 
