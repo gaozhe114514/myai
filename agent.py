@@ -35,6 +35,8 @@ from chat import (DEFAULT_TIMEOUT, check_config, complete, default_model,
                   load_config)
 # 复用第 6 步写好的 RAG 检索 —— 一份实现，两处使用
 import rag_common
+# 读文件也复用同一套格式解析：认识 txt/md/pdf/docx/xlsx/xls
+from docreader import read_document
 
 # 最大轮数：防止模型来回调工具停不下来（真的会）
 DEFAULT_MAX_ROUNDS = 6
@@ -171,7 +173,15 @@ def _safe_path(path):
 
 
 def read_file(path):
-    """工具 3：读一个文本文件。"""
+    """工具 3：读一个本地文件。
+
+    **用 docreader 来读，而不是自己写一套纯文本读取**：
+    这样 agent 能读的格式，跟知识库支持的格式就是同一套
+    （txt / md / pdf / docx / xlsx / xls）。
+
+    之前这里是自己写的 open() —— 结果是 agent 读不了 Excel，
+    而知识库能读。同一件事有两个实现，迟早对不上。
+    """
     full = _safe_path(path)
 
     if os.path.isdir(full):
@@ -179,18 +189,17 @@ def read_file(path):
     if not os.path.exists(full):
         return f"文件不存在：{path}"
 
-    try:
-        with open(full, "r", encoding="utf-8") as f:
-            content = f.read()
-    except UnicodeDecodeError:
-        return f"{path} 不是 UTF-8 编码的文本文件，读出来是乱码，跳过"
-    except OSError as error:
-        return f"读不了 {path}：{error}"
+    # 返回 (文件名, 正文)；失败时返回 (None, 一句错误说明)
+    name, content = read_document(full)
+    if name is None:
+        return content          # 这时 content 就是那句错误说明
 
-    # 太长的文件只给前面一截 —— 免得一个几万行的日志把上下文撑爆
+    # 太长的文件只给前面一截 —— 免得一个几万行的文件把上下文撑爆。
+    # 注意：截断会让"数一数有多少"这类问题失准，所以把全文长度也报出来。
     if len(content) > 4000:
         return (content[:4000]
-                + f"\n...（文件太长，只给前 4000 字；全文共 {len(content)} 字）")
+                + f"\n...（文件太长，只给前 4000 字；全文共 {len(content)} 字。"
+                  f"如果要数总数，请以完整文件为准，不要按这里看到的截断内容去数）")
 
     return content or "(文件是空的)"
 
@@ -289,7 +298,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "读取当前工作目录下的一个文本文件。需要看文件内容时用它，不要凭印象回答。",
+            "description": (
+                "读取本地文件。支持 txt / md / pdf / docx / xlsx / xls。"
+                "需要看文件内容时用它，不要凭印象回答。"
+                "遇到「有多少条 / 一共几个」这类需要数数的问题，"
+                "用它读完整文件再数，不要去查知识库（检索只给片段，数不准）。"
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
