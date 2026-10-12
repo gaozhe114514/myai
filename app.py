@@ -13,6 +13,7 @@ app.py —— 网页界面。
 没有一处是重新实现的。
 """
 
+import hmac
 import json
 import os
 import time
@@ -42,6 +43,54 @@ if not (os.getenv("DEEPSEEK_BASE_URL") and os.getenv("DEEPSEEK_API_KEY")):
         "1. 项目目录下有 `.env` 文件（从 `.env.example` 复制，填好地址和密钥）\n"
         "2. **是从项目目录启动的** `streamlit run app.py`"
     )
+    st.stop()
+
+
+# ============================ 访问密码 ============================
+
+def check_password():
+    """只有输对密码才让用。返回 True = 放行。
+
+    ⚠️ 为什么这一层必须有：
+
+        网页一旦暴露到公网，**任何知道网址的人都能打开它** ——
+        而这个网页默认是用**你的 API key** 去问模型的。
+        不设防的话，别人随便点点，你的账单就能上千。
+
+    设计上有个小心思：**没设密码 = 直接放行**。
+        这样本机自己用的时候完全无感，只有真的要对公网开放时才去设。
+
+    密码从环境变量 APP_PASSWORD 读（也就是写在 .env 里），
+        因为 .env 已经在 .gitignore 里 —— 密码不会跟着项目传出去。
+    """
+    expected = os.getenv("APP_PASSWORD")
+
+    # 没设密码 = 本机自用模式，不拦
+    if not expected:
+        return True
+
+    # 已经输过了（存在 session 里，刷新页面还在，关掉浏览器就没了）
+    if st.session_state.get("authed"):
+        return True
+
+    st.title("🔒 需要密码")
+    st.caption("这是私人服务，请输入访问密码。")
+
+    entered = st.text_input("访问密码", type="password")
+
+    if st.button("进入"):
+        # 用 compare_digest 而不是 == ：
+        # 普通的 == 比较会在第一个不同的字符处就返回，
+        # 逐字符的时间差理论上能被用来猜密码。这个函数是匀速比较的。
+        if hmac.compare_digest(entered, expected):
+            st.session_state.authed = True
+            st.rerun()
+        st.error("密码不对")
+
+    return False
+
+
+if not check_password():
     st.stop()
 
 
