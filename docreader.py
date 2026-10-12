@@ -12,19 +12,57 @@ RAG 的第一步是"读文档"。但真实的文档格式五花八门：
 以后要加 pptx、html、epub，都在这里加，不用碰别的地方。
 """
 
+import io
 import os
 
+# 图片识别要发请求，零件在 api.py —— 它不依赖本项目任何东西，所以能安全 import
+from api import ask_about_image
+
 # 纯文本类：直接按文本读就行
-TEXT_EXTENSIONS = (".txt", ".md")
+# CSV 也归在这里 —— 它本来就是逗号分隔的纯文本，只是后缀不同
+TEXT_EXTENSIONS = (".txt", ".md", ".csv")
 
 # 需要额外库才能解析的
 PDF_EXTENSIONS = (".pdf",)
 DOCX_EXTENSIONS = (".docx",)
+PPTX_EXTENSIONS = (".pptx",)
 XLSX_EXTENSIONS = (".xlsx", ".xls")   # 新旧两种都收（内容才是准的，见 _read_excel）
 
+# 图片类：本地抠不出文字，得让模型"看图"（见 _read_image）
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
 # 对外暴露的"我支持哪些格式"
-SUPPORTED_EXTENSIONS = (TEXT_EXTENSIONS + PDF_EXTENSIONS
-                        + DOCX_EXTENSIONS + XLSX_EXTENSIONS)
+SUPPORTED_EXTENSIONS = (TEXT_EXTENSIONS + PDF_EXTENSIONS + DOCX_EXTENSIONS
+                        + PPTX_EXTENSIONS + XLSX_EXTENSIONS + IMAGE_EXTENSIONS)
+
+
+# ============================ 图片识别（OCR）的配置 ============================
+
+# 图片识别要调模型，所以得知道"用哪个模型、等多久"。
+# 由调用方通过 configure_vision() 设置（一般是读 config.json 之后设进来）；
+# 不设就用下面这个兜底值。
+_vision_model = None
+_vision_timeout = 60
+
+
+def configure_vision(model=None, timeout=None):
+    """告诉 docreader：做图片识别时用哪个模型、等多久。
+
+    为什么不在这里直接读 config.json：
+        docreader 的定位是"解析文件"，不该去管项目配置。
+        配置由上层（ingest / app / agent）读好之后传进来。
+    """
+    global _vision_model, _vision_timeout
+    if model:
+        _vision_model = model
+    if timeout:
+        _vision_timeout = timeout
+
+
+def _vision_settings():
+    """算出这次图片识别用哪个模型、等多久。"""
+    model = _vision_model or os.getenv("DEEPSEEK_MODEL") or "deepseek-flash"
+    return model, _vision_timeout
 
 
 def read_document(path):
@@ -54,8 +92,12 @@ def read_document(path):
         return _read_pdf(path, name)
     if extension in DOCX_EXTENSIONS:
         return _read_docx(path, name)
+    if extension in PPTX_EXTENSIONS:
+        return _read_pptx(path, name)
     if extension in XLSX_EXTENSIONS:
         return _read_excel(path, name)
+    if extension in IMAGE_EXTENSIONS:
+        return _read_image(path, name)
     return _read_text(path, name)
 
 
@@ -102,9 +144,144 @@ def _read_pdf(path, name):
         return None, f"这个 PDF 解析失败（{type(error).__name__}: {error}）"
 
     if not pages:
-        return None, "这个 PDF 里抠不出文字。如果是扫描件（图片），需要 OCR 才能读"
+        # 一个字的正文都没抠出来 → 多半是扫描件（每页其实都是图片）。
+        # 走到这一步说明本地解析没辙了，才动用"让模型看图"那条路 ——
+        # 因为它**要花钱**，能不用就不用。
+        return _ocr_pdf(path, name)
 
     return name, "\n\n".join(pages)
+
+
+# 让模型"看图读字"的提示词。
+# 写得这么啰嗦是有原因的：不写清楚它就会"帮你总结"，
+# 而我们要的是**照抄原文** —— 总结过的东西没法用来做检索。
+OCR_PROMPT = """把这张图里的所有文字**完整地**抄下来。
+
+要求：
+1. 逐字照抄，不要漏字、不要改写、不要总结、不要翻译
+2. 保留原来的换行和大致结构
+3. 如果有表格，用 | 把同一行的单元格隔开
+4. 图里没有文字就直接输出：（这张图里没有文字）
+5. 不要加任何解释或说明"""
+
+
+def _ocr_pdf(path, name):
+    """扫描版 PDF：把每一页渲染成图片，让模型读字。
+
+    ⚠️ **这一步要花钱**，而且是"每页一次模型调用"。
+    一份 20 页的扫描件 = 20 次调用。所以只在"本地抠不出字"时才走这里。
+    """
+    try:
+        import pypdfium2
+    except ImportError:
+        return None, ("这份 PDF 像是扫描件，需要 OCR，但缺 pypdfium2，"
+                      "先运行：pip install pypdfium2")
+
+    model, timeout = _vision_settings()
+
+    try:
+        pdf = pypdfium2.PdfDocument(path)
+    except Exception as error:
+        return None, f"这个 PDF 打不开（{type(error).__name__}: {error}）"
+
+    pages = []
+    try:
+        for index in range(len(pdf)):
+            # scale=2 大约相当于 144 DPI —— 够看清字，图又不会太大
+            image = pdf[index].render(scale=2).to_pil()
+
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+
+            try:
+                text = ask_about_image(buffer.getvalue(), OCR_PROMPT,
+                                       model, timeout, image_format="png")
+            except RuntimeError as error:
+                return None, f"扫描件第 {index + 1} 页识别失败：{error}"
+
+            if text and not text.startswith("（这张图里没有文字"):
+                pages.append(f"【第 {index + 1} 页】\n{text}")
+    finally:
+        pdf.close()
+
+    if not pages:
+        return None, "这份 PDF 渲染出来了，但模型说里面没有文字"
+
+    return name, "\n\n".join(pages)
+
+
+def _read_pptx(path, name):
+    """从 PowerPoint 里抠文字。
+
+    每张幻灯片单独一块、带上页码 —— 因为 PPT 的内容是按页组织的，
+    全混在一起会丢掉"哪句话在哪一页"这个信息。
+    """
+    try:
+        from pptx import Presentation
+    except ImportError:
+        return None, "读 PPT 需要 python-pptx，先运行：pip install python-pptx"
+
+    try:
+        deck = Presentation(path)
+        slides = []
+
+        for index, slide in enumerate(deck.slides, start=1):
+            lines = []
+            for shape in slide.shapes:
+                # 文本框里的字
+                if shape.has_text_frame:
+                    for paragraph in shape.text_frame.paragraphs:
+                        text = "".join(run.text for run in paragraph.runs).strip()
+                        if text:
+                            lines.append(text)
+
+                # 表格里的字 —— PPT 里也常有表格
+                if shape.has_table:
+                    for row in shape.table.rows:
+                        cells = [cell.text.strip() for cell in row.cells
+                                 if cell.text.strip()]
+                        if cells:
+                            lines.append(" | ".join(cells))
+
+            if lines:
+                slides.append(f"【第 {index} 页】\n" + "\n".join(lines))
+    except Exception as error:
+        return None, f"这个 PPT 解析失败（{type(error).__name__}: {error}）"
+
+    if not slides:
+        return None, "这个 PPT 里没有文字（可能整份都是图片或图表）"
+
+    return name, "\n\n".join(slides)
+
+
+def _read_image(path, name):
+    """图片：让模型看图读字。
+
+    这条路跟扫描件 PDF 是同一个原理 —— 都是"字在图上，本地读不出来"。
+    """
+    model, timeout = _vision_settings()
+
+    try:
+        with open(path, "rb") as f:
+            image_bytes = f.read()
+    except OSError as error:
+        return None, f"读不了这个图片文件：{error}"
+
+    # 后缀去掉点得到 png / jpg 这种 MIME 子类型。
+    # 注意 jpg 在 MIME 里要写成 jpeg。
+    image_format = os.path.splitext(path)[1].lstrip(".").lower()
+    if image_format == "jpg":
+        image_format = "jpeg"
+
+    try:
+        text = ask_about_image(image_bytes, OCR_PROMPT, model, timeout, image_format)
+    except RuntimeError as error:
+        return None, f"图片识别失败：{error}"
+
+    if not text or text.startswith("（这张图里没有文字"):
+        return None, "模型说这张图里没有文字"
+
+    return name, text
 
 
 def _read_docx(path, name):

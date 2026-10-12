@@ -25,17 +25,14 @@ from datetime import datetime    # 生成带时间戳的文件名
 
 import requests                  # 发 HTTP 请求
 
-# 本项目自己的模块：从 txt/md/pdf/docx 里把文字抠出来
+# 本项目自己的模块：从各种格式的文件里把文字抠出来
 from docreader import read_document
 
-try:
-    from dotenv import load_dotenv
-
-    # 把 .env 文件里的配置读进来变成环境变量
-    load_dotenv()
-    HAS_DOTENV = True
-except ImportError:
-    HAS_DOTENV = False
+# 读 .env、拼请求地址和请求头 —— 这些零件都收在 api.py 里了。
+# 因为 docreader（图片识别）也要用，而 docreader 不能 import chat（会循环依赖）。
+# 在这里 import 之后，chat.api_url 依然能用（模块属性），app.py 不用改。
+# HAS_DOTENV 也一并从那边拿 —— "有没有装 dotenv"只该判断一次。
+from api import HAS_DOTENV, api_headers, api_url
 
 
 # ============================ 常量与内置默认值 ============================
@@ -353,19 +350,6 @@ def build_outgoing(session, user_input):
 
 
 # ============================ 调用模型 ============================
-
-def api_url():
-    """请求地址 = 环境变量里的接口地址 + 固定路径。"""
-    return os.getenv("DEEPSEEK_BASE_URL").rstrip("/") + "/chat/completions"
-
-
-def api_headers():
-    """请求头：带上密钥，并声明发过去的是 JSON。"""
-    return {
-        "Authorization": f"Bearer {os.getenv('DEEPSEEK_API_KEY')}",
-        "Content-Type": "application/json",
-    }
-
 
 def explain_api_error(response, model):
     """把服务端的拒绝，翻译成一句人话。"""

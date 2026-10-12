@@ -65,7 +65,8 @@ streamlit run app.py
 ```
 
 - **流式回答**、**标注来源**（可展开看依据了哪几段、相似度多少）
-- **上传文档**：txt / md / pdf / docx / xlsx / xls，保存后自动重建知识库
+- **上传文档**：`txt` `md` `csv` `pdf` `docx` `pptx` `xlsx` `xls` `png` `jpg`，保存后自动重建知识库
+- **扫描件和图片也能读** —— 走模型的多模态能力（见下面「格式与 OCR」）
 - **一键重建**、**可关掉"查资料"**（开关一拨，同一个问题对比一下就知道 RAG 有什么用）
 - **访问密码**：对外开放前先上锁
 - **手机远程访问**：用蒲公英组网（私有网络），手机在任何网络下都能打开自己的知识库
@@ -127,7 +128,8 @@ rag_common.py   RAG 的共用工具：切块、向量化、检索、查询改写
 ingest.py       建库：读文档 → 切块 → 算向量 → 存成 rag_index.json
 ask.py          知识库问答：检索 → 拼 prompt → 回答并标出处
 agent.py        工具调用：定义工具、执行工具、Agent 循环
-docreader.py    从 txt / md / pdf / docx / xlsx / xls 里把纯文本抠出来
+docreader.py    从各种格式里把纯文本抠出来（含扫描件 OCR）
+api.py          发请求的底层零件（地址、请求头、图片识别）
 app.py          网页界面（Streamlit）
 
 docs/           示例文档（会提交，别人 clone 下来就能直接用）
@@ -176,6 +178,30 @@ config.json     默认配置（模型、人设、超时）
 ```
 
 **模型自己执行不了任何东西。** 它只能"请求"，真正动手的是 Python 代码 —— 所以所有的安全措施都在程序这一层。
+
+### 格式与 OCR：能本地解析的，就不花钱
+
+`docreader.py` 支持 8 类格式，策略是**能本地抠出文字，就不动用模型**：
+
+```
+txt / md / csv   →  直接读
+docx / pptx      →  解析 XML（表格和文本框都会抠）
+xlsx / xls       →  解析表格
+                     └─ 先看文件头判断新旧，后缀不算数
+                        （老 .xls 被改名成 .xlsx 的情况很常见）
+pdf              →  先用 pypdf 抠文字
+                     ├─ 抠出来了   → 完事，不花钱
+                     └─ 一个字没有 → 说明是扫描件，每页渲染成图片交给模型
+png / jpg        →  直接交给模型「看图读字」
+```
+
+**为什么不用 Tesseract / PaddleOCR**：那两个要么得单独装一个 exe（还得下语言包），
+要么 pip 装完要拉 1–2 GB 依赖。而**模型本身就能看图** —— 实测中文识别一个字不差，
+还省掉一整套依赖。
+
+**代价是：这条路的每一页都是一次模型调用，要花钱。**
+一份 20 页的扫描件 = 20 次调用。所以策略是「能本地抠出文字就不走这条路」——
+普通 PDF 永远是本地解析。
 
 ---
 
@@ -282,7 +308,9 @@ Streamlit 是个 JS 单页应用，HTML 只有 1.5KB，真正的界面全在一�
 - **requests** — HTTP 请求
 - **python-dotenv** — 读取 `.env` 配置
 - **sentence-transformers** — 本地运行 embedding 模型（`BAAI/bge-small-zh-v1.5`，不用 API、不花钱）
-- **pypdf / python-docx / openpyxl / xlrd** — 解析 PDF、Word、Excel（新旧格式都认）
+- **pypdf / python-docx / python-pptx / openpyxl / xlrd** — 解析 PDF、Word、PPT、Excel（新旧格式都认）
+- **pypdfium2** — 把扫描版 PDF 的每一页渲染成图片
+- **多模态模型** — 图片和扫描件交给 `deepseek-flash`「看图读字」，不装 OCR 引擎
 - **Streamlit** — 网页界面
 - **蒲公英** — 异地组网（手机远程访问）
 - **模型** — DeepSeek `deepseek-flash`（OpenAI 兼容接口）

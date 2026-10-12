@@ -16,6 +16,8 @@ ingest.py —— 建知识库：把 docs/ 里的文档，变成可以按"意思"
 
 import sys
 
+import chat
+import docreader
 import rag_common
 
 
@@ -44,6 +46,13 @@ def build_index(docs_dirs=None, size=None, overlap=None, on_step=None):
 
     size = size or rag_common.CHUNK_SIZE
     overlap = rag_common.CHUNK_OVERLAP if overlap is None else overlap
+
+    # 建库时要读一堆文件，里面可能有图片或扫描件 —— 认它们要调模型。
+    # 先把"用哪个模型"告诉 docreader，不然它会用兜底值，
+    # 万一你在 config.json 里换了模型就对不上了。
+    config = chat.load_config()
+    docreader.configure_vision(model=config.get("model"),
+                               timeout=config.get("timeout"))
 
     # ---- 第 1 步：读文档 ----
     step(f"读取 {'、'.join(docs_dirs)} ……")

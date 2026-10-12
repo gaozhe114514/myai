@@ -25,3 +25,7 @@ openpyxl>=3.1
 # 读取老式 Excel（.xls）。xlrd 2.x 只支持这个老格式，
 # 正好跟 openpyxl（只支持新版 .xlsx）互补
 xlrd>=2.0
+
+# 读 PPT / 渲染扫描版 PDF 的每一页（渲染后交给模型"看图读字"）
+python-pptx>=1.0
+pypdfium2>=4.0

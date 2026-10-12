@@ -35,7 +35,8 @@ from chat import (DEFAULT_TIMEOUT, check_config, complete, default_model,
                   load_config)
 # 复用第 6 步写好的 RAG 检索 —— 一份实现，两处使用
 import rag_common
-# 读文件也复用同一套格式解析：认识 txt/md/pdf/docx/xlsx/xls
+# 读文件也复用同一套格式解析：认识 txt/md/pdf/docx/pptx/xlsx/xls/图片
+import docreader
 from docreader import read_document
 
 # 最大轮数：防止模型来回调工具停不下来（真的会）
@@ -402,6 +403,10 @@ def run_agent(question, model, timeout, max_rounds):
     global AGENT_MODEL, AGENT_TIMEOUT
     AGENT_MODEL = model
     AGENT_TIMEOUT = timeout
+
+    # read_file 现在走 docreader，可能碰到图片或扫描件 ——
+    # 那要调模型来"看图"，所以也得把模型告诉 docreader
+    docreader.configure_vision(model=model, timeout=timeout)
 
     messages = [
         {"role": "system", "content": AGENT_SYSTEM_PROMPT},
