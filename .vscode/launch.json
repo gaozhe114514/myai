@@ -1,0 +1,31 @@
+{
+  // VS Code / Cursor 的"运行配置"。
+  // 作用：让右上角那个 ▶ 按钮能正确地跑 Streamlit 网页。
+  //
+  // 不用这个的话，点 ▶ 只会执行 `python app.py` ——
+  // 而 Streamlit 是网页服务器，必须用 `streamlit run` 启动。
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "运行网页界面（Streamlit）",
+      "type": "debugpy",
+      "request": "launch",
+      // 用 "模块 + 参数" 的方式，等价于在终端敲：streamlit run app.py
+      "module": "streamlit",
+      "args": ["run", "app.py"],
+      "console": "integratedTerminal",
+      // 在项目根目录启动，这样 .env 和 docs/ 都能找到
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "建知识库（ingest.py）",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/ingest.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    }
+  ]
+}
