@@ -236,9 +236,9 @@ def search_knowledge_base(query):
     注意这里只是"把资料捞出来给模型看"，真正组织语言回答的还是模型自己 ——
     所以这个工具返回的是**原始片段**，不是最终答案。
     """
-    hits, search_query = rag_common.retrieve(query, AGENT_MODEL, AGENT_TIMEOUT)
-
     # retrieve 返回 hits=None 只有一个原因：库还没建
+    hits, queries = rag_common.retrieve(query, AGENT_MODEL, AGENT_TIMEOUT)
+
     if hits is None:
         return "知识库还没建。请先在命令行里运行：python ingest.py"
 
@@ -246,10 +246,10 @@ def search_knowledge_base(query):
         return "知识库里没有找到相关内容。"
 
     # 顺手把"实际用来检索的词"告诉模型。
-    # 万一改写跑偏了，模型能从这个信息里看出来，换个词再查一次。
+    # 万一拆解或改写跑偏了，模型能从这个信息里看出来，换个词再查一次。
     header = ""
-    if search_query != query:
-        header = f"（实际用来检索的词：{search_query}）\n\n"
+    if queries != [query]:
+        header = "（实际用来检索的词：" + " ｜ ".join(queries) + "）\n\n"
 
     return header + rag_common.format_hits(hits)
 
@@ -384,7 +384,7 @@ def run_agent(question, model, timeout, max_rounds):
     """Agent 的主循环。"""
 
     # 工具函数拿不到"用哪个模型"，所以在这里填进全局变量，
-    # 让 search_knowledge_base 做查询改写时能用上
+    # 让 search_knowledge_base 做"拆问题 + 改写查询"时能用上
     global AGENT_MODEL, AGENT_TIMEOUT
     AGENT_MODEL = model
     AGENT_TIMEOUT = timeout

@@ -15,6 +15,7 @@ RAG 一共五步，本文件负责前四步：
 
 import json
 import os
+import re
 
 # 复用已经写好的东西，不重复造：
 #   chat_ask       调模型（带流式输出，可静默）
@@ -63,6 +64,29 @@ REWRITE_PROMPT = """用户会用口语提问，但知识库里的文档用的是
 3. 保持原意，不要漏掉关键信息
 
 用户的问题：{question}"""
+
+# 拆问题用的提示词。
+# 为什么需要这一步：检索是"按一个方向找"的。
+# 你一次问三个问题，检索词会被搅成一句，结果只命中其中一部分 ——
+# 实测过：三个问题合着问只答对 1 个，分开问三个全对。
+DECOMPOSE_PROMPT = """用户可能在一句话里问了多个问题。
+
+请把它们拆成一个个独立的问题，**每行一个**。
+
+规则：
+1. 只有一个问题就原样输出那一句，不要改写、不要加任何东西
+2. 只输出问题本身 —— 不要编号、不要项目符号、不要解释
+3. 不要补充用户没问的东西
+
+用户的话：{question}"""
+
+# 拆出来的子问题最多几个。
+# 超过这个数说明模型在乱拆（比如把一句话拆成十几条），那就退回用原问题。
+MAX_SUB_QUESTIONS = 5
+
+# 所有子问题检索结果加起来，最多留多少块。
+# 兜底用的：万一子问题很多、检索块数又调得大，别把上下文撑爆。
+MAX_TOTAL_CHUNKS = 15
 
 
 # ============================ 第 1 步：读文档 + 切块 ============================
@@ -339,22 +363,91 @@ def rewrite_query(question, model, timeout):
     return cleaned or question
 
 
-def retrieve(question, model, timeout, top_k=TOP_K, rewrite=True):
-    """一次完整的检索：读库 → （可选）改写查询 → 找出最相关的几块。
+def _strip_list_marker(line):
+    """去掉行首的编号或项目符号。
 
-    返回 (hits, 实际用来检索的词)。
-    库还没建时返回 (None, 改写后的词) —— 调用方自己决定怎么提示。
+    模型被要求"不要编号"，但它经常还是会写成 "1. xxx" 或 "- xxx"。
+    与其反复改提示词跟它较劲，不如在代码里顺手清掉 —— 更可靠。
+    """
+    return re.sub(r"^\s*(?:[（(]?\d+[)）.、]|[-*•·])\s*", "", line).strip()
 
-    这个函数是 RAG 的"入口"。ask.py 和 agent.py 都调它，
-    所以检索逻辑只有一份，改一处两边都生效。
+
+def decompose_query(question, model, timeout):
+    """把一句话里藏的多个问题拆成几个独立的。
+
+    为什么需要这一步：
+        检索是"按一个方向找"的。你一次问三个问题，检索词就被搅成一句，
+        结果只命中其中一部分。实测过 —— 三个问题合着问只答对 1 个，
+        分开问三个全对。
+
+    返回一个列表。拆不出来、或者本来就是一个问题，就返回 [原问题]。
+    """
+    messages = [
+        {"role": "system", "content": "你是一个提问拆解助手，只输出拆开后的问题。"},
+        {"role": "user", "content": DECOMPOSE_PROMPT.format(question=question)},
+    ]
+
+    raw = chat_ask(messages, model, timeout, show=False)
+    if not raw:
+        return [question]
+
+    lines = []
+    for line in raw.splitlines():
+        cleaned = _strip_list_marker(line)
+        if cleaned:
+            lines.append(cleaned)
+
+    # 拆得太多、或者一条都没拆出来，说明这次拆解不可靠 ——
+    # 宁可退回原问题（效果差一点），也不要拿一堆垃圾子问题去乱检索
+    if not lines or len(lines) > MAX_SUB_QUESTIONS:
+        return [question]
+
+    return lines
+
+
+def retrieve(question, model, timeout, top_k=TOP_K, rewrite=True, decompose=True):
+    """一次完整的检索：拆问题 → 逐条改写 → 逐条检索 → 合并去重。
+
+    返回 (hits, 实际用到的检索词列表)。
+    库还没建时返回 (None, []) —— 调用方自己决定怎么提示。
+
+    这个函数是 RAG 的"入口"。ask.py、agent.py、app.py 都调它，
+    所以整个检索流程只有一份实现，改一处三边都生效。
     """
     index = load_index()
     if index is None:
-        return None, question
+        return None, []
 
-    search_query = rewrite_query(question, model, timeout) if rewrite else question
-    hits = search(search_query, index, top_k)
-    return hits, search_query
+    # 第 1 步：如果是"一句话里问了好几件事"，先拆开
+    sub_questions = decompose_query(question, model, timeout) if decompose else [question]
+
+    hits = []
+    queries = []
+    seen = set()      # 按正文去重：同一块资料可能被多个子问题都命中
+
+    # 第 2 步：每个子问题各自走一遍"改写 + 检索"
+    for sub_question in sub_questions:
+        search_query = rewrite_query(sub_question, model, timeout) if rewrite else sub_question
+        queries.append(search_query)
+
+        for hit in search(search_query, index, top_k):
+            if hit["text"] in seen:
+                # 这块已经被别的子问题命中过了 —— 不重复收集，
+                # 但把相似度取两者中更高的那个（它对这个子问题更贴切）
+                for existing in hits:
+                    if existing["text"] == hit["text"]:
+                        existing["score"] = max(existing["score"], hit["score"])
+                        break
+                continue
+
+            seen.add(hit["text"])
+            hits.append(hit)
+
+    # 第 3 步：整体重排一次，让最相关的排在前面（模型看到的第一块最"重"）
+    hits.sort(key=lambda item: item["score"], reverse=True)
+
+    # 兜底：别把上下文撑爆
+    return hits[:MAX_TOTAL_CHUNKS], queries
 
 
 def format_hits(hits):

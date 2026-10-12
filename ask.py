@@ -73,6 +73,8 @@ def parse_args():
     parser.add_argument("--model", help="用哪个模型（优先于 config.json）")
     parser.add_argument("--no-rewrite", action="store_true",
                         help="关掉查询改写，直接用原问题检索（用来对比效果）")
+    parser.add_argument("--no-decompose", action="store_true",
+                        help="关掉查询分解，把整句话当成一个问题检索（用来对比效果）")
     return parser.parse_args()
 
 
@@ -94,21 +96,26 @@ def main():
         print("先运行：python ingest.py")
         return 1
 
-    print(f"知识库：{index['count']} 块，来自 {rag_common.DOCS_DIR}/ 目录")
+    print(f"知识库：{index['count']} 块（来源：{'、'.join(rag_common.DOCS_DIRS)}）")
 
     config = load_config()
     model = default_model(args, config)
     timeout = config.get("timeout") or DEFAULT_TIMEOUT
 
     # ---- 第 4 步：检索 ----
-    # 检索对"用词"非常敏感，所以先让模型把口语问题翻译成文档用语，再去找。
-    # 这一整套流程（改写 + 检索）收在 rag_common.retrieve 里，
-    # 这样 agent.py 那边也能用同一份实现。
-    hits, search_query = rag_common.retrieve(
-        question, model, timeout, args.top, rewrite=not args.no_rewrite)
+    # 整条流程收在 rag_common.retrieve 里：拆问题 → 逐条改写 → 逐条检索 → 合并去重。
+    # 这样 ask.py / app.py / agent.py 三边共用同一份实现。
+    hits, queries = rag_common.retrieve(
+        question, model, timeout, args.top,
+        rewrite=not args.no_rewrite,
+        decompose=not args.no_decompose,
+    )
 
-    if search_query != question:
-        print(f"\n改写后的检索词：{search_query}")
+    if queries != [question]:
+        print(f"\n实际用的检索词（{len(queries)} 条）：")
+        for search_query in queries:
+            print(f"  · {search_query}")
+
     print_hits(hits)
 
     # ---- 第 5 步：生成 ----

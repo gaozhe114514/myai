@@ -263,7 +263,7 @@ if question:
 
     if use_kb:
         with st.spinner("在知识库里找相关资料…"):
-            hits, search_query = rag_common.retrieve(question, model, timeout, top_k)
+            hits, queries = rag_common.retrieve(question, model, timeout, top_k)
 
         if hits:
             sources = hits
@@ -276,8 +276,10 @@ if question:
             parts.append("我的问题：" + question)
             augmented = "\n".join(parts)
 
-            if search_query != question:
-                st.caption(f"🔍 改写后的检索词：**{search_query}**")
+            # 一个问题被拆成了几条检索词时，显示出来 ——
+            # 用户能看出"它把我的话理解对没有"
+            if queries != [question]:
+                st.caption(f"🔍 实际检索词（{len(queries)} 条）：" + " ｜ ".join(queries))
         else:
             st.caption("📭 知识库里没有找到相关资料，这次不参考资料回答")
 
