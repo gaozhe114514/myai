@@ -19,10 +19,13 @@ import sys
 import rag_common
 
 
-def build_index(docs_dir=None, size=None, overlap=None, on_step=None):
+def build_index(docs_dirs=None, size=None, overlap=None, on_step=None):
     """建库的完整流程：读文档 → 切块 → 向量化 → 存盘。
 
     返回一个统计字典（读了几篇、切了几块、存到哪了）。
+
+    docs_dirs：要看哪些目录。默认是 rag_common.DOCS_DIRS（docs/ + mydocs/）。
+               传一个字符串就只看那一个目录。
 
     参数 on_step 是个回调函数：每进入一个阶段就调一次，传一句进度文字。
     命令行用它打进度，网页界面用它更新进度条。
@@ -35,15 +38,18 @@ def build_index(docs_dir=None, size=None, overlap=None, on_step=None):
         if on_step:
             on_step(text)
 
-    docs_dir = docs_dir or rag_common.DOCS_DIR
+    docs_dirs = docs_dirs or rag_common.DOCS_DIRS
+    if isinstance(docs_dirs, str):
+        docs_dirs = (docs_dirs,)
+
     size = size or rag_common.CHUNK_SIZE
     overlap = rag_common.CHUNK_OVERLAP if overlap is None else overlap
 
     # ---- 第 1 步：读文档 ----
-    step(f"读取 {docs_dir}/ 目录……")
-    docs, skipped = rag_common.read_docs(docs_dir)
+    step(f"读取 {'、'.join(docs_dirs)} ……")
+    docs, skipped = rag_common.read_all_docs(docs_dirs)
     if not docs:
-        raise RuntimeError(f"{docs_dir} 里没有可读的文档（支持 {rag_common.SUPPORTED_EXTENSIONS}）")
+        raise RuntimeError(f"这些目录里都没有可读的文档：{'、'.join(docs_dirs)}")
     step(f"读到 {len(docs)} 篇文档")
 
     # ---- 第 2 步：切块 ----
@@ -74,13 +80,14 @@ def build_index(docs_dir=None, size=None, overlap=None, on_step=None):
 
 
 def main():
-    docs_dir = sys.argv[1] if len(sys.argv) > 1 else rag_common.DOCS_DIR
+    # 不给参数 = 读默认目录（docs/ + mydocs/）；给了一个就只看那一个
+    docs_dirs = (sys.argv[1],) if len(sys.argv) > 1 else rag_common.DOCS_DIRS
     size = int(sys.argv[2]) if len(sys.argv) > 2 else rag_common.CHUNK_SIZE
     overlap = int(sys.argv[3]) if len(sys.argv) > 3 else rag_common.CHUNK_OVERLAP
 
     print("=" * 52)
     try:
-        stats = build_index(docs_dir, size, overlap,
+        stats = build_index(docs_dirs, size, overlap,
                             on_step=lambda text: print(f"[{text}]"))
     except RuntimeError as error:
         print(error)

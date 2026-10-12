@@ -24,7 +24,16 @@ from docreader import SUPPORTED_EXTENSIONS, read_document
 
 # ============================ 配置 ============================
 
-DOCS_DIR = "docs"                 # 文档放这个目录，ingest.py 会全部读进来
+# 知识库从哪些目录读文档。
+# 分成两个，是因为这些文档"能不能给别人看"不一样：
+#     docs/    —— 示例文档，会跟着项目提交到 git，别人 clone 下来能看到
+#     mydocs/  —— 我自己的资料，已经 gitignore，只留在这台电脑上
+# 两个目录会一起进知识库，检索时不区分来源。
+DOCS_DIRS = ("docs", "mydocs")
+
+# 兼容旧名字：默认（也是示例）目录仍然是 docs/
+DOCS_DIR = DOCS_DIRS[0]
+
 INDEX_FILE = "rag_index.json"     # 建好的向量库存这儿
 
 CHUNK_SIZE = 400        # 每块大约多少字
@@ -84,6 +93,28 @@ def read_docs(docs_dir=DOCS_DIR):
             skipped.append((name, content))
             continue
         docs.append((filename, content))
+
+    return docs, skipped
+
+
+def read_all_docs(docs_dirs=DOCS_DIRS):
+    """把所有来源目录都读一遍，合并成一份列表。
+
+    这是建库时真正该调的函数 —— 而不是 read_docs。
+    read_docs 只管一个目录，这里负责"有哪些目录"这件事。
+
+    目录不存在就直接跳过，不当成错误 ——
+    因为 mydocs/ 默认不进 git，别人 clone 下来根本没有这个目录。
+    """
+    docs = []
+    skipped = []
+
+    for docs_dir in docs_dirs:
+        if not os.path.isdir(docs_dir):
+            continue
+        part_docs, part_skipped = read_docs(docs_dir)
+        docs.extend(part_docs)
+        skipped.extend(part_skipped)
 
     return docs, skipped
 

@@ -28,6 +28,10 @@ import rag_common
 
 st.set_page_config(page_title="MyAI 知识库助手", page_icon="🔎", layout="wide")
 
+# 上传的文档存进"我的资料"目录（DOCS_DIRS 的第二个）。
+# 它已经在 .gitignore 里，所以你的资料不会跟着项目提交出去。
+PRIVATE_DOCS_DIR = rag_common.DOCS_DIRS[1]
+
 
 # ============================ 启动前的检查 ============================
 
@@ -92,9 +96,8 @@ def stream_answer(messages, model, timeout):
 
 # ============================ 知识库 ============================
 
-def doc_stats():
-    """看一眼 docs/ 目录里有什么。"""
-    docs_dir = rag_common.DOCS_DIR
+def list_docs(docs_dir):
+    """列出一个目录里有哪些可读的文档。目录不存在就返回空列表。"""
     if not os.path.isdir(docs_dir):
         return []
     return sorted(f for f in os.listdir(docs_dir)
@@ -140,10 +143,12 @@ with st.sidebar:
     st.subheader("知识库")
 
     index = rag_common.load_index()
-    files = doc_stats()
+    example_files = list_docs(rag_common.DOCS_DIRS[0])
+    private_files = list_docs(PRIVATE_DOCS_DIR)
+    total_files = len(example_files) + len(private_files)
 
     if index:
-        st.caption(f"已建库：**{index['count']} 块**，来自 **{len(files)} 篇**文档")
+        st.caption(f"已建库：**{index['count']} 块**，来自 **{total_files} 篇**文档")
     else:
         st.caption("⚠️ 还没建库，点下面的按钮")
 
@@ -161,9 +166,19 @@ with st.sidebar:
     if st.button("🔄 重建知识库", use_container_width=True, type="primary"):
         rebuild_index(status_holder)
 
-    with st.expander(f"docs/ 里的 {len(files)} 个文件"):
-        for name in files:
-            st.caption(f"· {name}")
+    # 两个目录分开列 —— 因为"能不能给别人看"不一样，
+    # 界面上就该写清楚，别让用户搞混哪份会被提交
+    with st.expander(f"📁 文档（共 {total_files} 个）"):
+        st.caption(f"**{rag_common.DOCS_DIRS[0]}/**　示例文档，会跟着项目提交")
+        for name in example_files:
+            st.caption(f"　· {name}")
+
+        st.caption(f"**{PRIVATE_DOCS_DIR}/**　我的资料，不会提交")
+        if private_files:
+            for name in private_files:
+                st.caption(f"　· {name}")
+        else:
+            st.caption("　（还是空的 —— 从下面上传的文档会存到这里）")
 
     # 上传控件带一个"会变的 key"。
     # 为什么要变：Streamlit 的上传框会一直记着你选过哪些文件，
@@ -173,16 +188,19 @@ with st.sidebar:
         st.session_state.uploader_id = 0
 
     uploaded = st.file_uploader(
-        "上传文档到 docs/",
+        f"上传文档（存进 {PRIVATE_DOCS_DIR}/）",
         type=["txt", "md", "pdf", "docx"],
         accept_multiple_files=True,
         key=f"uploader_{st.session_state.uploader_id}",
+        help="存进你自己的资料目录，不会跟着项目提交到 git",
     )
 
     # 用一个按钮来"确认保存" —— 否则控件每次刷新都会重新触发，反复重写文件
-    if uploaded and st.button("保存到 docs/", use_container_width=True):
+    if uploaded and st.button("保存并重建知识库", use_container_width=True, type="primary"):
+        os.makedirs(PRIVATE_DOCS_DIR, exist_ok=True)   # 第一次用时目录可能还不存在
+
         for file in uploaded:
-            target = os.path.join(rag_common.DOCS_DIR, file.name)
+            target = os.path.join(PRIVATE_DOCS_DIR, file.name)
             with open(target, "wb") as out:
                 out.write(file.getbuffer())
 
