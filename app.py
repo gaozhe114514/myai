@@ -152,6 +152,12 @@ with st.sidebar:
     top_k = st.slider("检索几块", 1, 10, rag_common.TOP_K)
 
     status_holder = st.empty()
+
+    # 上一次"保存文档"之后留下的记号：这次刷新就自动重建知识库。
+    # 这样用户不用记得再点一次「重建知识库」—— 上传完就该能用。
+    if st.session_state.pop("pending_rebuild", False):
+        rebuild_index(status_holder)
+
     if st.button("🔄 重建知识库", use_container_width=True, type="primary"):
         rebuild_index(status_holder)
 
@@ -159,19 +165,31 @@ with st.sidebar:
         for name in files:
             st.caption(f"· {name}")
 
+    # 上传控件带一个"会变的 key"。
+    # 为什么要变：Streamlit 的上传框会一直记着你选过哪些文件，
+    # 保存完也不清空，文件就一直挂在框里看着难受。
+    # 把 key 换掉 = 换一个新的控件，框就空了。
+    if "uploader_id" not in st.session_state:
+        st.session_state.uploader_id = 0
+
     uploaded = st.file_uploader(
         "上传文档到 docs/",
         type=["txt", "md", "pdf", "docx"],
         accept_multiple_files=True,
+        key=f"uploader_{st.session_state.uploader_id}",
     )
-    # 注意：上传控件每次刷新都会重新触发，所以用一个按钮来"确认保存"，
-    # 否则每点一次页面都会把文件重写一遍
-    if uploaded and st.button("保存到 docs/"):
+
+    # 用一个按钮来"确认保存" —— 否则控件每次刷新都会重新触发，反复重写文件
+    if uploaded and st.button("保存到 docs/", use_container_width=True):
         for file in uploaded:
             target = os.path.join(rag_common.DOCS_DIR, file.name)
             with open(target, "wb") as out:
                 out.write(file.getbuffer())
-        status_holder.success(f"已保存 {len(uploaded)} 个文件，记得点「重建知识库」")
+
+        st.session_state.uploader_id += 1        # 清空上传框
+        st.session_state.pending_rebuild = True  # 下次刷新自动重建
+        # 注意：这里必须 st.rerun()。因为 st.rerun() 会立刻掐断当次执行，
+        # 所以在它前面写的任何提示都来不及显示 —— 提示交给重建完成后的那个函数去打
         st.rerun()
 
     st.divider()
