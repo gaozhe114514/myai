@@ -21,3 +21,7 @@ streamlit>=1.40
 
 # 读取 Excel（.xlsx）
 openpyxl>=3.1
+
+# 读取老式 Excel（.xls）。xlrd 2.x 只支持这个老格式，
+# 正好跟 openpyxl（只支持新版 .xlsx）互补
+xlrd>=2.0
