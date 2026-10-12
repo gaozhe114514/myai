@@ -65,7 +65,7 @@ streamlit run app.py
 ```
 
 - **流式回答**、**标注来源**（可展开看依据了哪几段、相似度多少）
-- **上传文档**：txt / md / pdf / docx，保存后自动重建知识库
+- **上传文档**：txt / md / pdf / docx / xlsx，保存后自动重建知识库
 - **一键重建**、**可关掉"查资料"**（开关一拨，同一个问题对比一下就知道 RAG 有什么用）
 - **访问密码**：对外开放前先上锁
 - **手机远程访问**：用蒲公英组网（私有网络），手机在任何网络下都能打开自己的知识库
@@ -127,7 +127,7 @@ rag_common.py   RAG 的共用工具：切块、向量化、检索、查询改写
 ingest.py       建库：读文档 → 切块 → 算向量 → 存成 rag_index.json
 ask.py          知识库问答：检索 → 拼 prompt → 回答并标出处
 agent.py        工具调用：定义工具、执行工具、Agent 循环
-docreader.py    从 txt / md / pdf / docx 里把纯文本抠出来
+docreader.py    从 txt / md / pdf / docx / xlsx 里把纯文本抠出来
 app.py          网页界面（Streamlit）
 
 docs/           示例文档（会提交，别人 clone 下来就能直接用）
@@ -282,7 +282,7 @@ Streamlit 是个 JS 单页应用，HTML 只有 1.5KB，真正的界面全在一�
 - **requests** — HTTP 请求
 - **python-dotenv** — 读取 `.env` 配置
 - **sentence-transformers** — 本地运行 embedding 模型（`BAAI/bge-small-zh-v1.5`，不用 API、不花钱）
-- **pypdf / python-docx** — 解析 PDF 和 Word
+- **pypdf / python-docx / openpyxl** — 解析 PDF、Word、Excel
 - **Streamlit** — 网页界面
 - **蒲公英** — 异地组网（手机远程访问）
 - **模型** — DeepSeek `deepseek-flash`（OpenAI 兼容接口）

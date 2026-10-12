@@ -236,9 +236,14 @@ with st.sidebar:
     if "uploader_id" not in st.session_state:
         st.session_state.uploader_id = 0
 
+    # 支持哪些格式**从 docreader 读**，不在这里写死。
+    # 之前就是写死的，结果给 docreader 加了 .xlsx 之后忘了改这里，
+    # 上传框照样把 Excel 拦下 —— 同一份清单存在两处，迟早漏一处。
+    allowed_types = [ext.lstrip(".") for ext in rag_common.SUPPORTED_EXTENSIONS]
+
     uploaded = st.file_uploader(
         f"上传文档（存进 {PRIVATE_DOCS_DIR}/）",
-        type=["txt", "md", "pdf", "docx"],
+        type=allowed_types,
         accept_multiple_files=True,
         key=f"uploader_{st.session_state.uploader_id}",
         help="存进你自己的资料目录，不会跟着项目提交到 git",
