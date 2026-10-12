@@ -15,6 +15,9 @@ RAG 的第一步是"读文档"。但真实的文档格式五花八门：
 import io
 import os
 
+# Pillow：图片的打开、缩放、切片、转码都靠它
+from PIL import Image
+
 # 图片识别要发请求，零件在 api.py —— 它不依赖本项目任何东西，所以能安全 import
 from api import ask_about_image
 
@@ -190,17 +193,22 @@ def _ocr_pdf(path, name):
             # scale=2 大约相当于 144 DPI —— 够看清字，图又不会太大
             image = pdf[index].render(scale=2).to_pil()
 
-            buffer = io.BytesIO()
-            image.save(buffer, format="PNG")
+            # 渲染出来的图也可能超过上限（大页面），所以走同一套处理
+            page_pieces = _plan_image_slices(image)
+            page_texts = []
+            for piece in page_pieces:
+                try:
+                    piece_text = ask_about_image(
+                        _encode_for_vision(piece), OCR_PROMPT,
+                        model, timeout, image_format="png")
+                except RuntimeError as error:
+                    return None, f"扫描件第 {index + 1} 页识别失败：{error}"
 
-            try:
-                text = ask_about_image(buffer.getvalue(), OCR_PROMPT,
-                                       model, timeout, image_format="png")
-            except RuntimeError as error:
-                return None, f"扫描件第 {index + 1} 页识别失败：{error}"
+                if piece_text and not piece_text.startswith("（这张图里没有文字"):
+                    page_texts.append(piece_text)
 
-            if text and not text.startswith("（这张图里没有文字"):
-                pages.append(f"【第 {index + 1} 页】\n{text}")
+            if page_texts:
+                pages.append(f"【第 {index + 1} 页】\n" + "\n".join(page_texts))
     finally:
         pdf.close()
 
@@ -262,26 +270,96 @@ def _read_image(path, name):
     model, timeout = _vision_settings()
 
     try:
-        with open(path, "rb") as f:
-            image_bytes = f.read()
-    except OSError as error:
-        return None, f"读不了这个图片文件：{error}"
+        image = Image.open(path)
+        image.load()
+    except Exception as error:
+        return None, f"这个图片打不开（{type(error).__name__}: {error}）"
 
-    # 后缀去掉点得到 png / jpg 这种 MIME 子类型。
-    # 注意 jpg 在 MIME 里要写成 jpeg。
-    image_format = os.path.splitext(path)[1].lstrip(".").lower()
-    if image_format == "jpg":
-        image_format = "jpeg"
+    pieces = _plan_image_slices(image)
+    texts = []
 
-    try:
-        text = ask_about_image(image_bytes, OCR_PROMPT, model, timeout, image_format)
-    except RuntimeError as error:
-        return None, f"图片识别失败：{error}"
+    for index, piece in enumerate(pieces, start=1):
+        try:
+            text = ask_about_image(_encode_for_vision(piece), OCR_PROMPT,
+                                   model, timeout, image_format="png")
+        except RuntimeError as error:
+            return None, f"图片识别失败：{error}"
 
-    if not text or text.startswith("（这张图里没有文字"):
+        if text and not text.startswith("（这张图里没有文字"):
+            # 切成多块时要标出"这是第几块"，否则内容接不上
+            label = f"【第 {index}/{len(pieces)} 块】\n" if len(pieces) > 1 else ""
+            texts.append(label + text)
+
+    if not texts:
         return None, "模型说这张图里没有文字"
 
-    return name, text
+    return name, "\n\n".join(texts)
+
+
+# 单块图片的最长边。
+# 实测：3627 × 18156、8.58MB 的 PNG 会被服务端直接 400 打回
+# （它的报错说 "unsupported image"，很误导 —— 其实只是太大了）。
+MAX_IMAGE_SIDE = 2000
+# 切片之间留一段重叠，免得正好把一行字从中间切断
+SLICE_OVERLAP = 120
+
+
+def _encode_for_vision(image):
+    """把图片编码成 PNG 字节，顺便处理掉模型不认的形式。
+
+    两个必须处理的问题：
+      1. RGBA（带透明通道）—— 很多接口对透明通道支持不好。
+         直接转 RGB 会把透明区域变成**黑色**，所以要垫一张白底再合成。
+      2. 调色板模式（P）之类的老式 PNG —— 一并归一化成 RGB。
+    """
+    if image.mode not in ("RGB", "L"):
+        # 垫白底，再合成上去 —— 透明区域就变成白色而不是黑色
+        canvas = Image.new("RGB", image.size, "white")
+        canvas.paste(image, mask=image.convert("RGBA").split()[-1])
+        image = canvas
+    elif image.mode == "L":
+        image = image.convert("RGB")
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _plan_image_slices(image):
+    """把一张图切成若干块，每块都不超过 MAX_IMAGE_SIDE。
+
+    **为什么是"切"而不是"缩小"**：
+        一张 3627 × 18156 的路线图，如果直接缩到能通过的大小，
+        高度还剩一万多像素，字会小到完全看不清 —— 那样识别出来全是错的。
+        切成几块之后，每块的字都保持原始清晰度。
+
+    太宽的话先等比缩窄（宽度方向的信息密度通常低一些），再纵向切。
+    """
+    width, height = image.size
+
+    # 先处理宽度：超过上限就等比缩小
+    if width > MAX_IMAGE_SIDE:
+        ratio = MAX_IMAGE_SIDE / width
+        image = image.resize((MAX_IMAGE_SIDE, max(1, int(height * ratio))),
+                             Image.LANCZOS)
+        width, height = image.size
+
+    # 高度够短 → 整张发过去就行
+    if height <= MAX_IMAGE_SIDE:
+        return [image]
+
+    # 纵向切片，块与块之间留 SLICE_OVERLAP 的重叠
+    pieces = []
+    top = 0
+    step = MAX_IMAGE_SIDE - SLICE_OVERLAP
+    while top < height:
+        bottom = min(top + MAX_IMAGE_SIDE, height)
+        pieces.append(image.crop((0, top, width, bottom)))
+        if bottom >= height:
+            break
+        top += step
+
+    return pieces
 
 
 def _read_docx(path, name):
