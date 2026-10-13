@@ -132,6 +132,14 @@ docreader.py    从各种格式里把纯文本抠出来（含扫描件 OCR）
 api.py          发请求的底层零件（地址、请求头、图片识别）
 app.py          网页界面（Streamlit）
 
+api_server.py   HTTP 后端（FastAPI）：把上面的能力包成接口
+db.py           数据库层：连接 + 三张表（users → sessions → messages）
+auth.py         认证：密码存 bcrypt 哈希、登录发 JWT 令牌
+
+make_eval.py    生成检索评估题（从切块里反向出题，答案出处已知）
+run_eval.py     跑评估，输出命中率
+eval_questions.json  评估题集
+
 docs/           示例文档（会提交，别人 clone 下来就能直接用）
 mydocs/         你自己的资料（已 gitignore，只留在本机）
 config.json     默认配置（模型、人设、超时）
