@@ -1,54 +1,54 @@
 [
   {
-    "question": "选择学院统一安排项目实践的学生，企业集中项目实践环节为期多少周？",
+    "question": "在实践意向确认中，企业自主实践需要提交哪些材料？",
     "expected_source": "2026-2027学年 第七学期工程实践安排说明 .docx"
   },
   {
-    "question": "2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表的备注中，省赛赛道八个专项赛道里编号为5的专项赛道名称是什么？",
+    "question": "本表中的项目信息与大赛官方报名网站中的信息出现不一致时，项目会被如何处理？",
     "expected_source": "2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表.xlsx"
   },
   {
-    "question": "资料中规定，P0 故障（服务完全不可用）要求多少分钟内响应？",
+    "question": "运维账号每多少天强制改密？",
     "expected_source": "IT-服务器运维规范.md"
   },
   {
-    "question": "资料中建议把 RAG 程序分成哪两个脚本？",
+    "question": "第 7 步中要求定义哪五个工具（函数）？",
     "expected_source": "PLAN.md"
   },
   {
-    "question": "语音唤醒不灵敏的说明中，环境噪音超过多少分贝时识别率会明显下降？",
+    "question": "保修政策中，主要部件（处理器、扬声器单元）的保修期是多少个月？",
     "expected_source": "产品说明-小智音箱A1000.md"
   },
   {
-    "question": "新员工报到当天下午的新人宣讲会安排在几点？",
+    "question": "导师津贴为每月多少元？",
     "expected_source": "人事-新员工入职指引.md"
   },
   {
-    "question": "所有报销需在费用发生当月起的多少天内提交？",
+    "question": "年假最多可以结转多少天到次年第一季度？",
     "expected_source": "公司规章制度.md"
   },
   {
-    "question": "阿里 iconfont 字库包含了哪两个图标库？",
+    "question": "资料中，外链式引入CSS时，link标签的href属性值是什么？",
     "expected_source": "前端路线图.png"
   },
   {
-    "question": "高哲获得的HarmonyOS应用开发者高级认证证书的证书编码是什么？",
+    "question": "高哲获得的华为开发者学堂专业证书编码是什么？",
     "expected_source": "华为开发者高级认证证书.jpg"
   },
   {
-    "question": "资料中规定，发错货、漏发货时，公司除承担往返运费外，还会补偿多少元优惠券？",
+    "question": "换货说明中，要求换成其他型号的按什么处理？",
     "expected_source": "售后-退换货政策.md"
   },
   {
-    "question": "收到侵权警告函后，必须在多少小时内转交法务部，且不得自行回复对方？",
+    "question": "自研软件需在发布后多少个月内登记软著？",
     "expected_source": "商标-知识产权管理.md"
   },
   {
-    "question": "立白洗洁精的单价是多少？",
+    "question": "编号24的家丰花筷子每包的积分单价是多少？",
     "expected_source": "嘉木苑社区积分兑换明细清单.xlsx"
   },
   {
-    "question": "资料中高哲所在的学院是哪个？",
+    "question": "考生可登录哪个网站查询、下载电子成绩报告单或自行办理纸质成绩证明？",
     "expected_source": "四级证书.pdf"
   },
   {
@@ -56,27 +56,187 @@
     "expected_source": "四级证书.png"
   },
   {
-    "question": "在自评等级的要求中，思想政治类课程考评优良对应的具体分数标准是什么？",
+    "question": "资料中思想政治类课程考评优良对应的成绩要求是多少分？",
     "expected_source": "团员教育评议表-高哲.docx"
   },
   {
-    "question": "超过5000元的培训费用需要由谁审批并签署服务期协议？",
+    "question": "每位员工每年需修满多少学分方可参与年度评优？",
     "expected_source": "培训-员工培训管理办法.md"
   },
   {
-    "question": "依赖于通道和上下文的统计数据池系统将EER和MinDCF指标分别提高了多少？",
+    "question": "资料中列举的传统身份认证技术包括哪几种？",
     "expected_source": "声纹识别系统计划书.docx"
   },
   {
-    "question": "大创网新用户登录后需接受哪一份服务条款方可继续进行报名参赛、报名青年红色筑梦之旅活动等其他操作？",
+    "question": "提交申请后，个人中心显示什么则无法进行报名参赛、报名青年红色筑梦之旅活动等其他操作？",
     "expected_source": "学生操作手册2026(1).pdf"
   },
   {
-    "question": "资料中高哲的班级是什么？",
+    "question": "资料中高哲的发证日期是哪一天？",
     "expected_source": "学生证.jpg"
   },
   {
-    "question": "复盘阶段要求几个工作日内出具复盘报告？",
+    "question": "在信息安全事件分级中，重大（橙）级事件规定的对外服务中断超过多少小时？",
     "expected_source": "安全-信息安全事件响应流程.md"
+  },
+  {
+    "question": "连续两次恢复演练失败后，追究谁的责任？",
+    "expected_source": "安全-数据备份与恢复预案.md"
+  },
+  {
+    "question": "同一客户在 7 天内第二次投诉，系统会直接按哪一级处理？",
+    "expected_source": "客服-客户投诉处理流程.md"
+  },
+  {
+    "question": "记录型信号量的定义代码中，结构体 semaphore 的第二个成员声明是什么？",
+    "expected_source": "操作系统.txt"
+  },
+  {
+    "question": "资料中午饭明确不吃什么？",
+    "expected_source": "早饭鸡蛋.docx"
+  },
+  {
+    "question": "学号542313310111的学生在春华苑1号楼的房间号和床位号分别是多少？",
+    "expected_source": "智能科学与技术23-01班级名单.xlsx"
+  },
+  {
+    "question": "用印后应在几个工作日内交行政部归档？",
+    "expected_source": "法务-合同用印管理办法.md"
+  },
+  {
+    "question": "盘点时使用什么工具扫码，数据实时上传？",
+    "expected_source": "物流-仓库盘点作业指引.md"
+  },
+  {
+    "question": "作者在动态调整部分设定了多久一次的反馈机制？",
+    "expected_source": "生涯发展报告.pdf"
+  },
+  {
+    "question": "视频会议设备仅在哪个厅配备？",
+    "expected_source": "行政-会议室预订与设备使用.md"
+  },
+  {
+    "question": "资料片段中，学号为542313310124的学生姓名是什么？",
+    "expected_source": "软件学院2026工程实践学生名单-智能科学与技术.xlsx"
+  },
+  {
+    "question": "郑州轻工业大学为糖尿病并发症无创评估系统V1.0取得的计算机软件著作权登记证书上，登记号是什么？",
+    "expected_source": "软著.jpg"
+  },
+  {
+    "question": "新供应商的营业执照需要满足什么年限要求？",
+    "expected_source": "采购-供应商准入与评估.md"
+  },
+  {
+    "question": "资料中列举的可以快速适配的相关岗位工作领域包括计算机、人工智能和什么？",
+    "expected_source": "高哲简历.pdf"
+  },
+  {
+    "question": "11月10日14:30-16:30在软件楼219由原万里主讲的讲座主题是什么？",
+    "expected_source": "2026-2027学年 第七学期工程实践安排说明 .docx"
+  },
+  {
+    "question": "在2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表的备注中，国赛高教主赛道项目填报省赛赛道时，八个专项赛道里编号为3的专项赛道名称是什么？",
+    "expected_source": "2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表.xlsx"
+  },
+  {
+    "question": "紧急变更需要哪两个角色双签？",
+    "expected_source": "IT-服务器运维规范.md"
+  },
+  {
+    "question": "MyAI 练手项目需要做完多少步，才能走完从调用 API 到部署的完整链条？",
+    "expected_source": "PLAN.md"
+  },
+  {
+    "question": "该设备内置电池的容量是多少？",
+    "expected_source": "产品说明-小智音箱A1000.md"
+  },
+  {
+    "question": "新员工开通企业邮箱与内部系统账号需要在几个工作日内完成？",
+    "expected_source": "人事-新员工入职指引.md"
+  },
+  {
+    "question": "单笔 500 到 5000 元的报销需要由谁审批？",
+    "expected_source": "公司规章制度.md"
+  },
+  {
+    "question": "在给出的 `.pic` 样式规则中，`margin-right` 的值是多少？",
+    "expected_source": "前端路线图.png"
+  },
+  {
+    "question": "资料片段中证书编码/Certificate code的具体值是什么？",
+    "expected_source": "华为开发者高级认证证书.jpg"
+  },
+  {
+    "question": "仓库验收通过后多少个工作日内发起退款？",
+    "expected_source": "售后-退换货政策.md"
+  },
+  {
+    "question": "授权发明专利奖励发明人多少元？",
+    "expected_source": "商标-知识产权管理.md"
+  },
+  {
+    "question": "在嘉木苑社区积分兑换明细清单中，序号3鲁花花生油5.4L的分值是多少？",
+    "expected_source": "嘉木苑社区积分兑换明细清单.xlsx"
+  },
+  {
+    "question": "资料中高哲所在的学院名称是什么？",
+    "expected_source": "四级证书.pdf"
+  },
+  {
+    "question": "这份全国大学英语四级考试成绩报告单的编号是多少？",
+    "expected_source": "四级证书.png"
+  },
+  {
+    "question": "资料中，思想政治类课程考评优良要求思想政治类课程成绩不低于多少分？",
+    "expected_source": "团员教育评议表-高哲.docx"
+  },
+  {
+    "question": "外部培训单次费用超过5000元时，签署的服务期协议要求培训后需继续服务满多少个月？",
+    "expected_source": "培训-员工培训管理办法.md"
+  },
+  {
+    "question": "资料中切分样本集时，将数据集按照什么比例切分为训练集和校验集？",
+    "expected_source": "声纹识别系统计划书.docx"
+  },
+  {
+    "question": "当项目处于什么状态时，可在个人中心对原有参赛项目执行取消报名操作？",
+    "expected_source": "学生操作手册2026(1).pdf"
+  },
+  {
+    "question": "处置步骤中，第2步“取证”要求将导出的日志、内存镜像交给哪个部门？",
+    "expected_source": "安全-信息安全事件响应流程.md"
+  },
+  {
+    "question": "备份数据传输全程加密，密钥由哪个部门单独保管？",
+    "expected_source": "安全-数据备份与恢复预案.md"
+  },
+  {
+    "question": "三级（重大）投诉承诺在多少小时内答复，并同时上报给谁？",
+    "expected_source": "客服-客户投诉处理流程.md"
+  },
+  {
+    "question": "只有系统拥有什么，才有可能导致异步性？",
+    "expected_source": "操作系统.txt"
+  },
+  {
+    "question": "赵晓灿的学号是多少？",
+    "expected_source": "智能科学与技术23-01班级名单.xlsx"
+  },
+  {
+    "question": "用印登记台账保存期限不得少于多少年？",
+    "expected_source": "法务-合同用印管理办法.md"
+  },
+  {
+    "question": "盘点流程中，差异率超过多少需要仓库主管签字确认？",
+    "expected_source": "物流-仓库盘点作业指引.md"
+  },
+  {
+    "question": "资料中，作者为自己设定的短期目标是什么？",
+    "expected_source": "生涯发展报告.pdf"
+  },
+  {
+    "question": "遗留物品每周星期几清空？",
+    "expected_source": "行政-会议室预订与设备使用.md"
   }
 ]
