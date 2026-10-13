@@ -26,31 +26,9 @@ import rag_common
 #   check_config  检查 .env 里的密钥和地址
 from chat import DEFAULT_TIMEOUT, ask, check_config, default_model, load_config
 
-# 知识库问答专用的 system 提示词。
-# 注意最后两条：要求注明出处、要求不知道就说不知道 ——
-# 这两条是 RAG 能不能"可信"的关键。
-RAG_SYSTEM_PROMPT = """你是一个严谨的知识库问答助手。
-
-下面会给你若干条从资料库里检索出来的片段，请**只依据这些片段**回答我的问题。
-
-要求：
-1. 回答时注明依据来自哪个文件，用 [文件名] 的形式写在句子后面。
-2. 如果片段里找不到答案，就直接说"资料库里没有相关内容"，不要自己编。
-3. 回答尽量简洁。"""
-
-
-def build_user_message(question, hits):
-    """把检索到的几块 + 提问，拼成一条 user 消息。"""
-    parts = ["以下是检索到的资料片段：", ""]
-
-    for i, hit in enumerate(hits, 1):
-        # 把相似度也写进去，方便排查"检索是不是找偏了"
-        parts.append(f"[片段{i}] 来源：{hit['source']}（相似度 {hit['score']:.3f}）")
-        parts.append(hit["text"])
-        parts.append("")
-
-    parts.append("我的问题：" + question)
-    return "\n".join(parts)
+# 提示词和"怎么把资料拼进 prompt"都搬到 rag_common 里了 ——
+# 因为 HTTP 后端（api_server.py）也要用同一份。
+# 这里不再自己定义，避免两处不一致。
 
 
 def print_hits(hits):
@@ -121,10 +99,7 @@ def main():
     # ---- 第 5 步：生成 ----
     # 注意：发给模型的是**原问题**，不是改写后的那句。
     # 改写只负责"找得准"，回答还是照着用户真正想问的来。
-    messages = [
-        {"role": "system", "content": RAG_SYSTEM_PROMPT},
-        {"role": "user", "content": build_user_message(question, hits)},
-    ]
+    messages = rag_common.build_rag_messages(question, hits)
 
     # 注意：这里发出去的内容里**只有这几块**，不是整个文档库。
     # 这就是 RAG 比"全塞进去"省的地方。

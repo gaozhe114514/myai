@@ -88,6 +88,41 @@ MAX_SUB_QUESTIONS = 5
 # 兜底用的：万一子问题很多、检索块数又调得大，别把上下文撑爆。
 MAX_TOTAL_CHUNKS = 15
 
+# 知识库问答用的 system 提示词。
+# 后面两条是关键：要求注明出处、要求不知道就说不知道 ——
+# 这两条决定了 RAG 能不能"可信"。
+#
+# 放在这里而不是 ask.py 里：因为现在有两个调用方 ——
+# 命令行的 ask.py，和 HTTP 后端的 api_server.py。
+# 同一份提示词存在两处，改一处漏一处（我们已经在别的地方踩过这个坑了）。
+RAG_SYSTEM_PROMPT = """你是一个严谨的知识库问答助手。
+
+下面会给你若干条从资料库里检索出来的片段，请**只依据这些片段**回答我的问题。
+
+要求：
+1. 回答时注明依据来自哪个文件，用 [文件名] 的形式写在句子后面。
+2. 如果片段里找不到答案，就直接说"资料库里没有相关内容"，不要自己编。
+3. 回答尽量简洁。"""
+
+
+def build_rag_messages(question, hits):
+    """把检索到的片段和问题拼成发给模型的消息数组。
+
+    命令行（ask.py）和 HTTP 后端（api_server.py）都用这个函数，
+    这样"怎么把资料拼进 prompt"只有一处实现。
+    """
+    parts = ["以下是检索到的资料片段：", ""]
+    for i, hit in enumerate(hits, 1):
+        parts.append(f"[片段{i}] 来源：{hit['source']}（相似度 {hit['score']:.3f}）")
+        parts.append(hit["text"])
+        parts.append("")
+    parts.append("我的问题：" + question)
+
+    return [
+        {"role": "system", "content": RAG_SYSTEM_PROMPT},
+        {"role": "user", "content": "\n".join(parts)},
+    ]
+
 
 # ============================ 第 1 步：读文档 + 切块 ============================
 
