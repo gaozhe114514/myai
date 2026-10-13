@@ -143,17 +143,111 @@ def read_all_docs(docs_dirs=DOCS_DIRS):
     return docs, skipped
 
 
+# 什么样的行算"新的一段开始了"。
+# 遇到它们就切一刀 —— 因为这些本身就是内容的自然边界，比"数到 400 个字"靠谱得多。
+SECTION_MARKERS = (
+    re.compile(r"^#{1,6}\s"),          # markdown 标题： #  ##  ###
+    re.compile(r"^【[^】]{1,20}】\s*$"),  # docreader 自己打的标记： 【第 1 页】【工作表：Sheet1】
+)
+
+
+def _is_section_start(line):
+    """这一行是不是"新一段"的开头？"""
+    return any(pattern.match(line) for pattern in SECTION_MARKERS)
+
+
+def _has_body(section):
+    """这一段除了标题行，还有没有真正的正文？
+
+    连续两个标题（比如大标题下面紧跟小标题）会产生"只有标题、没有内容"的段。
+    那种段单独成块是**废块** —— 检索永远匹配不到它有用的东西。
+    """
+    body = [line for line in section.split("\n")
+            if line.strip() and not _is_section_start(line)]
+    return bool(body)
+
+
+def _split_sections(text):
+    """按结构标记把文本切成若干段。
+
+    没有结构标记的文本（OCR 出来的流水文字、纯 txt）会整段返回，
+    调用方再按字数去切。
+    """
+    sections = []
+    current = []
+
+    for line in text.split("\n"):
+        if _is_section_start(line) and current:
+            # 碰到新标记，先把攒着的收掉
+            sections.append("\n".join(current))
+            current = [line]
+        else:
+            current.append(line)
+
+    if current:
+        sections.append("\n".join(current))
+
+    # 去掉空段
+    sections = [s.strip() for s in sections if s.strip()]
+
+    # 把"光标题没正文"的段并给下一段。
+    # 例：'# 产品说明' 紧跟 '## 基本参数' —— 标题合进正文那一段，
+    # 而不是自己孤零零占一块。
+    merged = []
+    carry = ""
+    for section in sections:
+        if not _has_body(section):
+            carry = (carry + "\n" + section) if carry else section
+            continue
+        merged.append((carry + "\n" + section) if carry else section)
+        carry = ""
+
+    # 结尾还剩光标题，并到最后一段上
+    if carry:
+        if merged:
+            merged[-1] = merged[-1] + "\n" + carry
+        else:
+            merged.append(carry)
+
+    return merged
+
+
+def _split_by_length(text, size, overlap):
+    """纯按字数切（老办法）。只在"这一段实在太长、又没有内部结构"时用。"""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + size
+        chunks.append(text[start:end].strip())
+        if end >= len(text):
+            break
+        # 下一块从 end 往前退 overlap 个字开始 —— 这一段就是"重叠区"
+        start = end - overlap
+    return [c for c in chunks if c]
+
+
 def chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
     """把一整篇文档切成若干小块。
 
-    为什么要切？
-      整篇丢进去太占地方，而且一篇文档里往往只有一两段跟问题有关。
-      切成小块之后，检索就能精确定位到"那一段"，而不是把整篇都塞给模型。
+    **策略：先按结构切，再在结构内部按字数切。**
 
-    为什么要重叠？
-      一句关键的话很可能正好横跨切点，被切成两半 ——
-      那样两边都读不通，检索也匹配不上。
-      让相邻两块重叠一截，这句话至少能在某一块里保持完整。
+    为什么不能"每 400 字一刀"（原来的做法）：
+        那样会把一个完整的话题从中间劈开。实测过 ——
+        《产品说明-小智音箱A1000.md》只有 2 块，一块 400 字里同时塞了
+        电池续航、保修政策、WiFi 连接、语音唤醒四件事。
+        结果"环境噪音超过多少分贝"这个细节被稀释在里头，检索打不中，
+        评估集里那一道就挂了。
+
+    为什么每一小块要有合理的长度（不能太碎）：
+        太短的块（几十个字）信号太弱，检索时容易被淹没。
+        所以这里不是"每个标题一块"，而是"沿着标题边界攒，攒到差不多大小再切"。
+
+    为什么要重叠：
+        一句关键的话很可能正好横跨切点，被切成两半 ——
+        那样两边都读不通，检索也匹配不上。
+        让相邻两块重叠一截，这句话至少能在某一块里保持完整。
+        （注意：只有"超长段落被按字数切开"时才需要重叠；
+          按结构分开的段本来就是完整的，不需要。）
     """
     if overlap >= size:
         raise ValueError("overlap 必须小于 size，否则每次只前进 0 个字，会死循环")
@@ -163,14 +257,19 @@ def chunk_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
         return []
 
     chunks = []
-    start = 0
-    while start < len(text):
-        end = start + size
-        chunks.append(text[start:end])
-        if end >= len(text):
-            break
-        # 下一块从 end 往前退 overlap 个字开始 —— 这一段就是"重叠区"
-        start = end - overlap
+    for section in _split_sections(text):
+        if len(section) <= size:
+            # 这一段能装下 → 它自己就是一块，**不跟别的段合并**
+            #
+            # 为什么不合并：第一版我写成了"攒到快满再切"，
+            # 结果《保修政策》和《常见问题》又被攒回一块 ——
+            # 等于绕了一圈回到原点，那个"分贝"还是被稀释着。
+            # 结构边界就是话题边界，**不该为了凑大小去打破它**。
+            chunks.append(section)
+        else:
+            # 这一段本身就超长（没有内部结构，或者一段就是上万字）
+            # 只能按字数切开
+            chunks.extend(_split_by_length(section, size, overlap))
 
     return chunks
 

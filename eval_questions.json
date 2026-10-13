@@ -1,0 +1,82 @@
+[
+  {
+    "question": "选择学院统一安排项目实践的学生，企业集中项目实践环节为期多少周？",
+    "expected_source": "2026-2027学年 第七学期工程实践安排说明 .docx"
+  },
+  {
+    "question": "2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表的备注中，省赛赛道八个专项赛道里编号为5的专项赛道名称是什么？",
+    "expected_source": "2026年郑州轻工业大学大学生创新大赛省赛网络评审推荐项目汇总表.xlsx"
+  },
+  {
+    "question": "资料中规定，P0 故障（服务完全不可用）要求多少分钟内响应？",
+    "expected_source": "IT-服务器运维规范.md"
+  },
+  {
+    "question": "资料中建议把 RAG 程序分成哪两个脚本？",
+    "expected_source": "PLAN.md"
+  },
+  {
+    "question": "语音唤醒不灵敏的说明中，环境噪音超过多少分贝时识别率会明显下降？",
+    "expected_source": "产品说明-小智音箱A1000.md"
+  },
+  {
+    "question": "新员工报到当天下午的新人宣讲会安排在几点？",
+    "expected_source": "人事-新员工入职指引.md"
+  },
+  {
+    "question": "所有报销需在费用发生当月起的多少天内提交？",
+    "expected_source": "公司规章制度.md"
+  },
+  {
+    "question": "阿里 iconfont 字库包含了哪两个图标库？",
+    "expected_source": "前端路线图.png"
+  },
+  {
+    "question": "高哲获得的HarmonyOS应用开发者高级认证证书的证书编码是什么？",
+    "expected_source": "华为开发者高级认证证书.jpg"
+  },
+  {
+    "question": "资料中规定，发错货、漏发货时，公司除承担往返运费外，还会补偿多少元优惠券？",
+    "expected_source": "售后-退换货政策.md"
+  },
+  {
+    "question": "收到侵权警告函后，必须在多少小时内转交法务部，且不得自行回复对方？",
+    "expected_source": "商标-知识产权管理.md"
+  },
+  {
+    "question": "立白洗洁精的单价是多少？",
+    "expected_source": "嘉木苑社区积分兑换明细清单.xlsx"
+  },
+  {
+    "question": "资料中高哲所在的学院是哪个？",
+    "expected_source": "四级证书.pdf"
+  },
+  {
+    "question": "CET口试考试时间为每年哪两个月？",
+    "expected_source": "四级证书.png"
+  },
+  {
+    "question": "在自评等级的要求中，思想政治类课程考评优良对应的具体分数标准是什么？",
+    "expected_source": "团员教育评议表-高哲.docx"
+  },
+  {
+    "question": "超过5000元的培训费用需要由谁审批并签署服务期协议？",
+    "expected_source": "培训-员工培训管理办法.md"
+  },
+  {
+    "question": "依赖于通道和上下文的统计数据池系统将EER和MinDCF指标分别提高了多少？",
+    "expected_source": "声纹识别系统计划书.docx"
+  },
+  {
+    "question": "大创网新用户登录后需接受哪一份服务条款方可继续进行报名参赛、报名青年红色筑梦之旅活动等其他操作？",
+    "expected_source": "学生操作手册2026(1).pdf"
+  },
+  {
+    "question": "资料中高哲的班级是什么？",
+    "expected_source": "学生证.jpg"
+  },
+  {
+    "question": "复盘阶段要求几个工作日内出具复盘报告？",
+    "expected_source": "安全-信息安全事件响应流程.md"
+  }
+]
