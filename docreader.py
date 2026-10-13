@@ -13,6 +13,7 @@ RAG 的第一步是"读文档"。但真实的文档格式五花八门：
 """
 
 import io
+import json
 import os
 
 # Pillow：图片的打开、缩放、切片、转码都靠它
@@ -155,6 +156,63 @@ def _read_pdf(path, name):
     return name, "\n\n".join(pages)
 
 
+# ============================ OCR 结果缓存 ============================
+
+# 为什么需要缓存：
+#     图片识别（OCR）是**又慢又花钱**的一步 —— 那张长图要 170 秒、6 次模型调用。
+#     但**每次跑 ingest.py 都会把所有图片重新识别一遍**，
+#     哪怕文件一个字都没改过。纯属重复劳动。
+#
+# 做法：把识别结果按"文件路径 + 修改时间 + 大小"存起来。
+#     下次同样的文件直接复用，文件改了（时间或大小变了）才重新识别。
+#
+# 这个文件是**派生数据**，已经在 .gitignore 里，不会跟着项目提交。
+CACHE_FILE = ".ocr_cache.json"
+
+
+def _cache_key(path):
+    """生成缓存键：路径 + 修改时间 + 大小。
+
+    为什么三个都要：
+        路径          —— 不同文件不能混
+        修改时间 + 大小 —— 文件被改了就必须重认，不能拿旧结果糊弄
+    """
+    stat = os.stat(path)
+    return f"{os.path.abspath(path)}|{int(stat.st_mtime)}|{stat.st_size}"
+
+
+def _load_cache():
+    """读缓存。文件不存在或者坏了，就当作空缓存 —— 不能因为缓存让程序崩掉。"""
+    if not os.path.exists(CACHE_FILE):
+        return {}
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_cache(cache):
+    """写缓存。写不进去也不影响主流程（大不了下次重新识别）。"""
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def _get_cached(path):
+    """查缓存。命中就返回之前识别好的文字，没命中返回 None。"""
+    return _load_cache().get(_cache_key(path))
+
+
+def _put_cache(path, text):
+    """把这次识别的结果存进缓存。"""
+    cache = _load_cache()
+    cache[_cache_key(path)] = text
+    _save_cache(cache)
+
+
 # 让模型"看图读字"的提示词。
 # 写得这么啰嗦是有原因的：不写清楚它就会"帮你总结"，
 # 而我们要的是**照抄原文** —— 总结过的东西没法用来做检索。
@@ -174,6 +232,11 @@ def _ocr_pdf(path, name):
     ⚠️ **这一步要花钱**，而且是"每页一次模型调用"。
     一份 20 页的扫描件 = 20 次调用。所以只在"本地抠不出字"时才走这里。
     """
+    # 先查缓存 —— 缓存命中就不需要 pypdfium2，也不需要花钱识别
+    cached = _get_cached(path)
+    if cached:
+        return name, cached
+
     try:
         import pypdfium2
     except ImportError:
@@ -215,7 +278,9 @@ def _ocr_pdf(path, name):
     if not pages:
         return None, "这份 PDF 渲染出来了，但模型说里面没有文字"
 
-    return name, "\n\n".join(pages)
+    text = "\n\n".join(pages)
+    _put_cache(path, text)
+    return name, text
 
 
 def _read_pptx(path, name):
@@ -269,6 +334,11 @@ def _read_image(path, name):
     """
     model, timeout = _vision_settings()
 
+    # 先查缓存 —— 这张图没变过的话，直接用它，省掉又慢又花钱的识别
+    cached = _get_cached(path)
+    if cached:
+        return name, cached
+
     try:
         image = Image.open(path)
         image.load()
@@ -293,7 +363,9 @@ def _read_image(path, name):
     if not texts:
         return None, "模型说这张图里没有文字"
 
-    return name, "\n\n".join(texts)
+    text = "\n\n".join(texts)
+    _put_cache(path, text)     # 存起来，下次这张图就不用再识别了
+    return name, text
 
 
 # 单块图片的最长边。
