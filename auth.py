@@ -38,6 +38,18 @@ from sqlalchemy.orm import Session
 
 from db import User, get_db
 
+# 加载 .env。规则见 api.py 开头：**谁需要用环境变量，谁就负责把它读进来。**
+#
+# 下一行就要读 JWT_SECRET 了，所以这里必须先加载 ——
+# 否则 SECRET_KEY 会静默退回那个开发用的默认值，
+# 后果是：**线上所有令牌都用一个公开的假密钥签名，谁都能伪造。**
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 # 签发令牌用的密钥。**必须保密**，写在 .env 里。
 # 换了它，所有已发出的令牌立即失效 —— 相当于"强制所有人重新登录"。
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-only-secret-change-me")

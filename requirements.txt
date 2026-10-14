@@ -32,3 +32,28 @@ pypdfium2>=4.0
 
 # 图片处理：打开、缩放、切片、转码（识别大图前要先切块）
 Pillow>=10.0
+
+# ---- 后端（api_server.py）----
+
+# HTTP 后端框架，写接口的（第 8 步 · 阶段 1）
+fastapi>=0.128
+
+# 跑 FastAPI 的服务器程序（fastapi 只管"怎么处理请求"，
+# uvicorn 管"怎么收请求、发响应"）
+uvicorn>=0.39
+
+# 数据库工具：用 Python 对象操作数据库，换数据库只改一行连接串
+sqlalchemy>=2.0
+
+# 密码哈希。注意它**故意算得慢**，这样暴力破解不划算
+bcrypt>=5.0
+
+# 生成和校验登录令牌（JWT）
+PyJWT>=2.15
+
+# ---- 数据库驱动（第 8 步 · 阶段 2 装 PostgreSQL 用）----
+#
+# 为什么需要它：SQLAlchemy 只是个"翻译"，它自己不连数据库。
+# 真要连 PostgreSQL，得有个专门的驱动，就是它。
+# 不带 -binary 的那个版本要本机有 C 编译器才能装，新手直接用 -binary
+psycopg2-binary>=2.9

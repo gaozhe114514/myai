@@ -29,6 +29,19 @@ from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Text,
                         create_engine)
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
+# 加载 .env。规则见 api.py 开头：**谁需要用环境变量，谁就负责把它读进来。**
+#
+# 这里必须自己读一次，不能指望"别人已经读过了"。
+# 之前 api_server.py 能用，是靠"先 import chat"顺带加载的 —— 纯属碰巧。
+# 一旦有人单独 import db（比如建表脚本），环境变量是空的，
+# DATABASE_URL 就会悄悄退回默认的 SQLite：**连错了库，还不报错。**
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass    # 没装也不崩，这时得靠外面自己把环境变量设好
+
 # 数据库地址。写在 .env 里，不写就默认用 SQLite（开发时零配置）
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///myai.db")
 
