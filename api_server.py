@@ -35,6 +35,7 @@ api_server.py —— HTTP 后端（FastAPI）。
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 # ⚠️ 用 Optional[int] 而不是写成 int | None。
 #    后者是 Python 3.10 才有的新写法，而我本机虚拟环境是 3.9，服务器是 3.10 ——
 #    写了它，代码在服务器上能跑，在本机反而起不来。
@@ -42,6 +43,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -353,3 +355,30 @@ def api_chat(request: ChatRequest,
                    [s.model_dump() for s in sources])
 
     return ChatResponse(session_id=session.id, answer=answer, sources=sources)
+
+
+# ============================ 前端静态文件 ============================
+#
+# 让后端顺手把 web/ 目录里的页面也发出去。
+# 这样**前端和接口是同一个地址、同一个端口**（都在这台 8000 上），
+# 浏览器认为是"同源"，就不会拦跨域请求 —— 所以也**不需要配 CORS**。
+#
+# ⚠️⚠️ 下面这两行必须是**整个文件的最后一段代码**。
+#
+#     原因：Starlette 是**按注册顺序**匹配路由的，谁先注册谁先被匹配到。
+#     而 mount("/") 里的 "/" 匹配**所有路径** —— 它要是排在前面，
+#     上面那些 /api/* 和 FastAPI 自带的 /docs 就全被它吃掉了。
+#     放在最后，前面注册的接口都优先命中，剩下的才轮到这里。
+#
+#     ⚠️ 以后新增接口，一定要加在这两行**上面**，
+#        否则新接口永远匹配不到（表现是 404，很难看出原因）。
+#
+# ⚠️ 路径必须用 Path(__file__) 算出来，不能直接写 directory="web"。
+#    写相对路径的话，"从哪个目录启动的程序"就决定了能不能找到这些文件 ——
+#    本地双击启动正常、部署到服务器上变成 500，就是这里出的问题。
+#
+# 顺带一提：静态文件是**每次请求现读**的。所以改 HTML/CSS/JS
+# 只要刷新浏览器就行，不用重启服务；只有改 Python 才要重启。
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

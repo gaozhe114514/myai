@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <!-- 不写 charset 的话，中文会变成乱码。这一行必须最早出现。 -->
+  <meta charset="utf-8">
+  <!-- 手机上必须的：不写的话，页面会按电脑宽度渲染再整体缩小，字小得没法看 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · MyAI 知识库助手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-page">
+
+  <main class="login-card">
+    <h1>MyAI</h1>
+    <p class="subtitle">你的私有知识库助手</p>
+
+    <!--
+      为什么用 <form> 包起来，而不是光放两个按钮？两个实在的好处：
+        ① 在输入框里按**回车**就能提交（不用 form 的话，回车没反应）
+        ② 浏览器的密码管理器能认出这是登录表单，会提示保存密码
+      提交时会触发下面的 submit 事件 —— 我们在 login.js 里接管它。
+    -->
+    <form id="auth-form" novalidate>
+      <label for="username">用户名</label>
+      <input id="username" name="username" type="text"
+             autocomplete="username" placeholder="2-50 个字符" required>
+
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password"
+             autocomplete="current-password" placeholder="至少 6 位" required>
+
+      <!-- 出错信息显示在这里。平时是空的、不占位置 -->
+      <p id="error" class="error" hidden></p>
+
+      <button id="submit-btn" type="submit" class="btn-primary">登 录</button>
+    </form>
+
+    <p class="switch">
+      <span id="switch-hint">还没有账号？</span>
+      <a href="#" id="switch-link">注册一个</a>
+    </p>
+  </main>
+
+  <!--
+    ⚠️ type="module" 是必须的，否则下面 login.js 里的 import 语句会报错。
+    代价要知道：带 module 的页面**双击文件打开是白屏的**（file:// 下浏览器
+    会拦掉模块加载）。也就是说这个页面必须通过 http://127.0.0.1:8000/ 访问，
+    这是好事 —— file:// 下本来也调不通任何接口。
+  -->
+  <script type="module" src="login.js"></script>
+
+</body>
+</html>

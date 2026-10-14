@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyAI 知识库助手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="chat-page">
+
+  <!-- 手机上用来展开左栏的按钮。桌面端用 CSS 隐藏掉 -->
+  <button id="sidebar-toggle" class="sidebar-toggle" type="button"
+          aria-label="展开对话列表">☰</button>
+
+  <!-- 手机上展开左栏时，后面那层灰色遮罩。点它就收起来 -->
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <!-- ============================ 左栏 ============================ -->
+  <aside id="sidebar" class="sidebar">
+
+    <div class="sidebar-head">
+      <button id="new-chat-btn" type="button" class="btn-primary">+ 新对话</button>
+    </div>
+
+    <!-- 对话列表。内容由 app.js 填进来 -->
+    <nav id="session-list" class="session-list"></nav>
+
+    <div class="sidebar-foot">
+      <!-- 知识库状态。只在页面加载时读一次，不做定时刷新 ——
+           /api/health 每次都会把 7.9 MB 的索引文件整个读进来解析一遍 -->
+      <div id="kb-status" class="kb-status">正在读取知识库状态…</div>
+
+      <div class="user-row">
+        <span id="username" class="username">…</span>
+        <button id="logout-btn" type="button" class="link-btn">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================ 右侧聊天区 ============================ -->
+  <main class="chat-main">
+
+    <!-- 消息区。内容由 app.js 填进来 -->
+    <div id="messages" class="messages"></div>
+
+    <!--
+      用 <form> 包起来是为了能直接在输入框里按回车发送。
+      ⚠️ textarea 里按回车默认是"换行"，不是"提交"，
+         所以要靠 app.js 手动处理：回车=发送，Shift+回车=换行。
+    -->
+    <form id="composer" class="composer">
+      <textarea id="question" rows="1"
+                placeholder="问点什么…（回车发送，Shift + 回车换行）"></textarea>
+      <button id="send-btn" type="submit" class="btn-primary">发送</button>
+    </form>
+  </main>
+
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>

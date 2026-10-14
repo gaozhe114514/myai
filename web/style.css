@@ -1,0 +1,543 @@
+/**
+ * style.css —— 两个页面共用的全部样式。
+ *
+ * 朴素但干净优先：不做动效，靠留白、圆角、浅灰边框把层次做出来。
+ *
+ * 分成三块：
+ *     一、基础（清默认样式、配色变量、字体）
+ *     二、登录页
+ *     三、聊天页
+ */
+
+/* ============================ 一、基础 ============================ */
+
+/* 浏览器给每个元素都塞了默认的 margin/padding，各家还不一样。
+   先全清掉，再自己按需要加 —— 这样两个浏览器看到的才是同一个东西。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* 颜色都定义成变量，想换配色只改这一处 */
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #e3e6ea;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --danger: #c0392b;
+  --danger-bg: #fdecea;
+  --danger-border: #f5c6c2;
+  --bubble-user: #2563eb;
+  --bubble-ai: #ffffff;
+  --radius: 10px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  /* 中文字体要单独列出来 —— 不写的话，中文会退回系统默认字体，
+     和英文混在一起时明显不齐、不好看 */
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei",
+               "PingFang SC", sans-serif;
+}
+
+/* 所有输入框、按钮统一继承页面的字体。
+   不写这句，浏览器会给它们换成另一套字体，看着很违和。 */
+input,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* 按钮的基础样式**只做重置，不做造型**。
+   造型交给下面三个具体的类 —— 因为页面上有好几种按钮
+   （主按钮、对话列表项、文字按钮）。如果基础样式就是蓝色填充，
+   后面每一处都得写一堆覆盖，很容易越写越乱。 */
+button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 主要按钮：蓝色填充 */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+/* 文字按钮：看起来像链接 */
+.link-btn {
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.link-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+/* 禁用状态要**看得出来**。新手产品最容易被吐槽的，
+   就是"点了没反应"—— 用户以为坏了。
+   这条对所有按钮生效，不管是哪种造型。 */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* 出错提示条 */
+.error {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+}
+
+
+/* ============================ 二、登录页 ============================ */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 32px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.login-card h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  letter-spacing: 0.5px;
+}
+
+.login-card .subtitle {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card input {
+  margin-bottom: 16px;
+}
+
+.login-card button {
+  width: 100%;
+}
+
+.login-card .switch {
+  margin: 20px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-card .switch a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.login-card .switch a:hover {
+  text-decoration: underline;
+}
+
+
+/* ============================ 三、聊天页 ============================ */
+
+.chat-page {
+  /* 撑满一屏，整页不滚动 —— 滚动只发生在消息区内部。
+     为什么写两行：dvh 是"动态视口高度"，手机上地址栏收起/展开时它跟着变，
+     不会把底部的输入框顶出去。老浏览器不认识 dvh，就用上面那行 vh。 */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ---------- 左栏 ---------- */
+
+.sidebar {
+  flex: 0 0 260px;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  background: #fbfbfc;
+  border-right: 1px solid var(--border);
+}
+
+/* 发送中时把左栏整体禁掉。
+   用 pointer-events: none 一次拦掉所有点击，比每个元素逐个禁用省事，也不会漏。 */
+.sidebar.busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.sidebar-head {
+  padding: 14px 12px 10px;
+}
+
+.sidebar-head .btn-primary {
+  width: 100%;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.session-empty {
+  margin: 8px 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 对话列表里的一项。
+   它本质上是个 <button>（这样才能点、能用键盘 Tab 聚焦），
+   但外观必须像列表项，不能是蓝色按钮 —— 所以这里全都要覆盖掉。 */
+.session-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  margin-bottom: 3px;
+  border-radius: 8px;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.session-item:hover:not(:disabled) {
+  background: #eef0f3;
+}
+
+.session-item.active {
+  background: #e4ecfd;
+}
+
+.session-title {
+  display: block;
+  font-size: 14px;
+  /* 标题太长就截成一行加省略号，别让它把左栏撑宽 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-item.active .session-title {
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.session-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sidebar-foot {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.kb-status {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.username {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 右侧区域 ---------- */
+
+.chat-main {
+  flex: 1;
+  /* ⚠️ flex 子项的默认"最小宽度"是它的内容宽度，
+     消息一长就会把整个布局撑破、页面出现横向滚动条。
+     设成 0 才能真正按剩余空间收缩。这是个经典坑。 */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+}
+
+/* ---------- 消息气泡 ---------- */
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.msg-user {
+  align-items: flex-end;
+}
+
+.msg-assistant {
+  align-items: flex-start;
+}
+
+.bubble {
+  max-width: 76%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  word-break: break-word;
+  /* ⚠️ 这里**不能**用 pre-wrap：
+     模型回答里的换行已经被 markdown.js 变成 <br> 了，
+     再叠加一个"保留换行"就会多出一堆空行。 */
+  white-space: normal;
+}
+
+.msg-user .bubble {
+  /* 用户可能自己打了换行，所以这一处要保留 */
+  white-space: pre-wrap;
+  background: var(--bubble-user);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+.msg-assistant .bubble {
+  background: var(--bubble-ai);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 3px;
+}
+
+/* "正在思考"那条占位气泡 */
+.bubble.pending {
+  color: var(--muted);
+}
+
+/* ---------- 空状态 ---------- */
+
+.empty-state {
+  max-width: 460px;
+  margin: 12vh auto 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-title {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.empty-hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
+.empty-example {
+  display: inline-block;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+/* ---------- "依据的 N 段资料" ---------- */
+
+.sources {
+  max-width: 76%;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.sources > summary {
+  padding: 2px 0;
+  color: var(--muted);
+  cursor: pointer;
+  /* 防止双击时把文字选中（浏览器默认会把 summary 的文字选上） */
+  user-select: none;
+}
+
+.sources > summary:hover {
+  color: var(--accent);
+}
+
+.source {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.source-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.source-score {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.source-text {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* ---------- 底部输入区 ---------- */
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.composer textarea {
+  /* 高度由 app.js 的 autoGrow 动态算，所以关掉手动拖拽把手 */
+  resize: none;
+  max-height: 160px;
+  line-height: 1.5;
+}
+
+.composer .btn-primary {
+  flex: 0 0 auto;
+  height: 42px;
+}
+
+/* ---------- 手机端 ---------- */
+
+/* 手机上用来展开左栏的按钮。桌面端不需要，直接藏掉 */
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 30;
+  width: 40px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  line-height: 1;
+}
+
+/* 手机上展开左栏时，后面那层灰遮罩 */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 720px) {
+  /* 窄屏上左栏改成"抽屉"：默认藏在屏幕左边外面，点按钮才滑进来。
+     用 transform 而不是改 left —— transform 只影响绘制，流畅得多。 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    width: 78vw;
+    max-width: 300px;
+    flex: none;
+    transform: translateX(-100%);
+    transition: transform 0.15s ease;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: block;
+  }
+
+  /* 给左上角那个按钮让出位置 */
+  .messages {
+    padding-top: 58px;
+  }
+
+  .bubble,
+  .sources {
+    max-width: 88%;
+  }
+
+  .composer {
+    padding: 10px 12px 14px;
+  }
+}
